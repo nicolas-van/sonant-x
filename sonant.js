@@ -33,10 +33,9 @@
 // Example usage:
 //
 //   var songGen = new sonant();
-//   songGen.init();
 //   for (var t = 0; t < songGen.tracks; t++)
 //       songGen.generate(t);
-//   audio = songGen.createAudio();
+//   var audio = songGen.createAudio();
 //   audio.loop = true;
 //   audio.play();
 //

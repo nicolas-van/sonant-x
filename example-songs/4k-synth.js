@@ -3,11 +3,12 @@
     // This is the song used in the 4k synth demo (synth.bitsnbites.eu)
     //--------------------------------------------------------------------------
 
-    // Song length in seconds (how much data to generate)
-    var songLen = 125;
-
     // Song data
     var song = {
+        // Song length in seconds (how much data to generate)
+        songLen: 125,
+
+        // Song data
         songData: [
 	        { // 0
 		        // Oscillator 1

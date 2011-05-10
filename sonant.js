@@ -52,7 +52,6 @@ var sonant = function()
     //**************************************************************************
 
     // *** INSERT MUSIC HERE ***
-    // var songLen = ???;
     // var song = ???;
 
     //**************************************************************************
@@ -60,9 +59,9 @@ var sonant = function()
     //**************************************************************************
 
     // Wave data configuration
-    var WAVE_SPS = 44100;               // Samples per second
-    var WAVE_CHAN = 2;                  // Channels
-    var WAVE_SIZE = WAVE_SPS * songLen; // Total song size (in samples)
+    var WAVE_SPS = 44100;                    // Samples per second
+    var WAVE_CHAN = 2;                       // Channels
+    var WAVE_SIZE = WAVE_SPS * song.songLen; // Total song size (in samples)
  
     // Work buffers
     var chnBufWork, mixBufWork;
@@ -282,7 +281,7 @@ var sonant = function()
 
                             // Panning & master volume
                             t = osc_sin(pow2(instr.fx_pan_freq - 8) * k / rowLen) * instr.fx_pan_amt / 512 + 0.5;
-                            rsample *= 150 * instr.env_master;
+                            rsample *= 35 * instr.env_master;
 
                             // Add to 16-bit channel buffer
                             x = chnBuf[k*4] + (chnBuf[k*4+1] << 8) + rsample * (1 - t);
@@ -323,7 +322,7 @@ var sonant = function()
         // Add to mix buffer
         for(b = 0; b < waveBytes; b += 2)
         {
-            x = mixBuf[b] + (mixBuf[b+1] << 8) + chnBuf[b] + (chnBuf[b+1] << 8) - 32768;
+            x = mixBuf[b] + (mixBuf[b+1] << 8) + 4 * (chnBuf[b] + (chnBuf[b+1] << 8) - 32768);
             x = x > 65535 ? 65535 : (x < 0 ? 0 : x);
             mixBuf[b] = x & 255;
             mixBuf[b+1] = (x >> 8) & 255;
@@ -362,11 +361,22 @@ var sonant = function()
         }
 
         // Convert the string buffer to a base64 data uri
-        s = "data:audio/wav;base64," + window.btoa(wave);
+        s = "data:audio/wav;base64," + btoa(wave);
         wave = null;
 
         // Return the music as an audio element
         return new Audio(s);
+    };
+
+    // Get n samples of wave data at time t [s]. Wave data in range [0,1].
+    this.getData = function(t, n)
+    {
+        for (var i = Math.floor(t * WAVE_SPS), j = 0, d = [], b = mixBufWork; j < 2*n; j += 2)
+        {
+            var k = 4 * (i + j) + 1;
+            d.push(t > 0 && k < b.length ? (b[k] + b[k-1]/256) / 256 : 0.5);
+        }
+        return d;
     };
 };
 

@@ -238,23 +238,22 @@ var sonant = function()
                                 e -= (j - attack - sustain) / release;
 
                             // Oscillator 1
-                            t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.2 * instr.osc1_detune / 255);
+                            t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
                             if(instr.lfo_osc1_freq) t += lfor;
                             if(instr.osc1_xenv) t *= e * e;
                             c1 += t;
-                            x = osc1(c1);
-                            rsample = x * instr.osc1_vol / 255;
+                            rsample = osc1(c1) * instr.osc1_vol;
 
                             // Oscillator 2
-                            t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.2 * instr.osc2_detune / 255);
+                            t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
                             if(instr.osc2_xenv) t *= e * e;
                             c2 += t;
-                            x = osc2(c2);
-                            rsample += x * instr.osc2_vol / 255
+                            rsample += osc2(c2) * instr.osc2_vol;
 
                             // Noise oscillator
-                                + osc_sin(Math.random()) * instr.noise_fader / 255 * e;
-                            rsample *= e;
+                            if(instr.noise_fader) rsample += (2*Math.random()-1) * instr.noise_fader * e;
+
+                            rsample *= e / 255;
 
                             // State variable filter
                             f = instr.fx_freq;

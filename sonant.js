@@ -281,7 +281,7 @@ var sonant = function()
 
                             // Panning & master volume
                             t = osc_sin(pow2(instr.fx_pan_freq - 8) * k / rowLen) * instr.fx_pan_amt / 512 + 0.5;
-                            rsample *= 35 * instr.env_master;
+                            rsample *= 39 * instr.env_master;
 
                             // Add to 16-bit channel buffer
                             x = chnBuf[k*4] + (chnBuf[k*4+1] << 8) + rsample * (1 - t);
@@ -322,8 +322,7 @@ var sonant = function()
         // Add to mix buffer
         for(b = 0; b < waveBytes; b += 2)
         {
-            x = mixBuf[b] + (mixBuf[b+1] << 8) + 4 * (chnBuf[b] + (chnBuf[b+1] << 8) - 32768);
-            x = x > 65535 ? 65535 : (x < 0 ? 0 : x);
+            x = mixBuf[b] + (mixBuf[b+1] << 8) + chnBuf[b] + (chnBuf[b+1] << 8) - 32768;
             mixBuf[b] = x & 255;
             mixBuf[b+1] = (x >> 8) & 255;
         }
@@ -333,7 +332,7 @@ var sonant = function()
     this.createAudio = function()
     {
         // Local variables
-        var b, k, x, wave, l1, l2, s;
+        var b, k, x, wave, l1, l2, s, y;
 
         // Turn critical object properties into local variables (performance)
         var mixBuf = mixBufWork,
@@ -355,8 +354,13 @@ var sonant = function()
             // This is a GC & speed trick: don't add one char at a time - batch up
             // larger partial strings
             x = "";
-            for (k = 0; k < 128 && b < waveBytes; ++k, b += 4)
-                x += String.fromCharCode(mixBuf[b], (mixBuf[b+1] - 128) & 255, mixBuf[b+2], (mixBuf[b+3] - 128) & 255);
+            for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
+            {
+                // Note: We amplify and clamp here
+                y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
+                y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+                x += String.fromCharCode(y & 255, (y >> 8) & 255);
+            }
             wave += x;
         }
 

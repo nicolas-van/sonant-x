@@ -33,7 +33,7 @@
 // Example usage:
 //
 //   var songGen = new sonant();
-//   for (var t = 0; t < songGen.tracks; t++)
+//   for (var t = 0; t < 8; t++)
 //       songGen.generate(t);
 //   var audio = songGen.createAudio();
 //   audio.loop = true;
@@ -84,11 +84,13 @@ var sonant = function()
         // trailing bytes that we don't care too much about)
         var size = Math.ceil(Math.sqrt(WAVE_SIZE * WAVE_CHAN / 2));
 
+        var ctx = document.createElement('canvas').getContext('2d');
+
         // Create the channel work buffer
-        chnBufWork = document.createElement('canvas').getContext('2d').createImageData(size, size).data;
+        chnBufWork = ctx.createImageData(size, size).data;
 
         // Create & clear the channel mix buffer
-        var b, mixBuf = document.createElement('canvas').getContext('2d').createImageData(size, size).data;
+        var b, mixBuf = ctx.createImageData(size, size).data;
         for(b = size * size * 4 - 2; b >= 0 ; b -= 2)
         {
             mixBuf[b] = 0;
@@ -121,41 +123,15 @@ var sonant = function()
         return 3 - v2;
     }
 
-    // Power functions (x^n etc) - actually faster than Math.pow() in many browsers
-    function pow(x, n)
-    {
-        if(n < 0)
-        {
-            n = -n;
-            x = 1 / x;
-        }
-
-        for(var y = 1;n > 0;--n)
-            y *= x;
-
-        return y;
-    }
-
-    function pow2(n)
-    {
-        if(n >= 0)
-            return 1 << n;
-        else
-            return 1 / (1 << -n);
-    }
-
     function getnotefreq(n)
     {
-        return 0.00390625 * pow(1.059463094, n - 128);
+        return 0.00390625 * Math.pow(1.059463094, n - 128);
     }
 
 
     //--------------------------------------------------------------------------
     // Public members
     //--------------------------------------------------------------------------
-
-    // Number of tracks in the song
-    this.tracks = song.songData.length;
 
     // Number of lines per second (song speed)
     this.lps = WAVE_SPS / song.rowLen;
@@ -168,18 +144,6 @@ var sonant = function()
     // Generate audio data for a single track
     this.generate = function (track)
     {
-        // Local variables
-        var i, b, p, row, n, instr, currentpos, cp,
-            attack, sustain, release, c1, c2, q, low, band, high,
-            k, t, lfor, e, x, rsample, f, da, osc_lfo, osc1, osc2,
-            rowLen;
-
-        // Turn critical object properties into local variables (performance)
-        var chnBuf = chnBufWork,
-            mixBuf = mixBufWork,
-            waveSamples = WAVE_SIZE,
-            waveBytes = WAVE_SIZE * WAVE_CHAN * 2;
-
         // Array of oscillator functions
         var oscillators =
         [
@@ -189,19 +153,33 @@ var sonant = function()
             osc_tri
         ];
 
-        // Parse note data
-        rowLen = song.rowLen;
+        // Local variables
+        var i, j, k, b, p, row, n, currentpos, cp,
+            c1, c2, q, low, band, high, t, lfor, e, x,
+            rsample, f, da, o1t, o2t;
 
-        instr = song.songData[track];
+        // Preload/precalc some properties/expressions (for improved performance)
+        var chnBuf = chnBufWork,
+            mixBuf = mixBufWork,
+            waveSamples = WAVE_SIZE,
+            waveBytes = WAVE_SIZE * WAVE_CHAN * 2,
+            instr = song.songData[track],
+            rowLen = song.rowLen,
+            osc_lfo = oscillators[instr.lfo_waveform],
+            osc1 = oscillators[instr.osc1_waveform],
+            osc2 = oscillators[instr.osc2_waveform],
+            attack = instr.env_attack,
+            sustain = instr.env_sustain,
+            release = instr.env_release,
+            panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen,
+            lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
+
+        // Clear buffer
         for(b = 0; b < waveBytes; b += 2)
         {
             chnBuf[b] = 0;
             chnBuf[b+1] = 128;
         }
-
-        osc_lfo = oscillators[instr.lfo_waveform];
-        osc1 = oscillators[instr.osc1_waveform];
-        osc2 = oscillators[instr.osc2_waveform];
 
         currentpos = 0;
         for(p = 0; p < song.endPattern - 1; ++p) // Patterns
@@ -214,10 +192,11 @@ var sonant = function()
                     n = instr.c[cp - 1].n[row];
                     if(n)
                     {
-                        attack = instr.env_attack;
-                        sustain = instr.env_sustain;
-                        release = instr.env_release;
                         c1 = c2 = 0;
+
+                        // Precalculate frequencues
+                        o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
+                        o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
 
                         // State variable init
                         q = instr.fx_resonance / 255;
@@ -227,8 +206,7 @@ var sonant = function()
                             k = j + currentpos;
 
                             // LFO
-                            t = pow2(instr.lfo_freq - 8) * k / rowLen;
-                            lfor = osc_lfo(t) * instr.lfo_amt / 512 + 0.5;
+                            lfor = osc_lfo(k * lfoFreq) * instr.lfo_amt / 512 + 0.5;
 
                             // Envelope
                             e = 1;
@@ -238,14 +216,14 @@ var sonant = function()
                                 e -= (j - attack - sustain) / release;
 
                             // Oscillator 1
-                            t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
+                            t = o1t;
                             if(instr.lfo_osc1_freq) t += lfor;
                             if(instr.osc1_xenv) t *= e * e;
                             c1 += t;
                             rsample = osc1(c1) * instr.osc1_vol;
 
                             // Oscillator 2
-                            t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
+                            t = o2t;
                             if(instr.osc2_xenv) t *= e * e;
                             c2 += t;
                             rsample += osc2(c2) * instr.osc2_vol;
@@ -279,7 +257,7 @@ var sonant = function()
                             }
 
                             // Panning & master volume
-                            t = osc_sin(pow2(instr.fx_pan_freq - 8) * k / rowLen) * instr.fx_pan_amt / 512 + 0.5;
+                            t = osc_sin(k * panFreq) * instr.fx_pan_amt / 512 + 0.5;
                             rsample *= 39 * instr.env_master;
 
                             // Add to 16-bit channel buffer

@@ -118,7 +118,7 @@ var sonant = function()
 
     function osc_tri(value)
     {
-        var v2 = (osc_saw(value) + 0.5) * 4;
+        var v2 = (value % 1) * 4;
         if(v2 < 2) return v2 - 1;
         return 3 - v2;
     }
@@ -261,12 +261,13 @@ var sonant = function()
                             rsample *= 39 * instr.env_master;
 
                             // Add to 16-bit channel buffer
-                            x = chnBuf[k*4] + (chnBuf[k*4+1] << 8) + rsample * (1 - t);
-                            chnBuf[k*4] = x & 255;
-                            chnBuf[k*4+1] = (x >> 8) & 255;
-                            x = chnBuf[k*4+2] + (chnBuf[k*4+3] << 8) + rsample * t;
-                            chnBuf[k*4+2] = x & 255;
-                            chnBuf[k*4+3] = (x >> 8) & 255;
+                            k <<= 2;
+                            x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
+                            chnBuf[k] = x & 255;
+                            chnBuf[k+1] = (x >> 8) & 255;
+                            x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
+                            chnBuf[k+2] = x & 255;
+                            chnBuf[k+3] = (x >> 8) & 255;
                         }
                     }
                 }

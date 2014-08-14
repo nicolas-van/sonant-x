@@ -87,6 +87,139 @@ function getnotefreq(n)
 
 var ctx = document.createElement('canvas').getContext('2d');
 
+sonant.AudioGenerator = function(mixBuf, waveSize) {
+    // Local variables
+    var b, k, x, wave, l1, l2, s, y;
+
+    // Turn critical object properties into local variables (performance)
+    var waveBytes = waveSize * WAVE_CHAN * 2;
+
+    // Convert to a WAVE file (in a binary string)
+    l1 = waveBytes - 8;
+    l2 = l1 - 36;
+    wave = String.fromCharCode(82,73,70,70,
+                               l1 & 255,(l1 >> 8) & 255,(l1 >> 16) & 255,(l1 >> 24) & 255,
+                               87,65,86,69,102,109,116,32,16,0,0,0,1,0,2,0,
+                               68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
+                               l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
+    for (b = 0; b < waveBytes;)
+    {
+        // This is a GC & speed trick: don't add one char at a time - batch up
+        // larger partial strings
+        x = "";
+        for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
+        {
+            // Note: We amplify and clamp here
+            y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            x += String.fromCharCode(y & 255, (y >> 8) & 255);
+        }
+        wave += x;
+    }
+
+    // Convert the string buffer to a base64 data uri
+    this.s = "data:audio/wav;base64," + btoa(wave);
+};
+sonant.AudioGenerator.prototype.get = function() {
+    return new Audio(this.s);
+};
+
+sonant.SoundGenerator = function(instr, rowLen) {
+    this.instr = instr;
+    this.rowLen = rowLen || 5605;
+
+    this.osc_lfo = oscillators[instr.lfo_waveform];
+    this.osc1 = oscillators[instr.osc1_waveform];
+    this.osc2 = oscillators[instr.osc2_waveform];
+    this.attack = instr.env_attack;
+    this.sustain = instr.env_sustain;
+    this.release = instr.env_release;
+    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
+    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
+};
+sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
+    var c1 = 0;
+    var c2 = 0;
+
+    // Precalculate frequencues
+    var o1t = getnotefreq(n + (this.instr.osc1_oct - 8) * 12 + this.instr.osc1_det) * (1 + 0.0008 * this.instr.osc1_detune);
+    var o2t = getnotefreq(n + (this.instr.osc2_oct - 8) * 12 + this.instr.osc2_det) * (1 + 0.0008 * this.instr.osc2_detune);
+
+    // State variable init
+    var q = this.instr.fx_resonance / 255;
+    var low = 0;
+    var band = 0;
+    for (var j = this.attack + this.sustain + this.release - 1; j >= 0; --j)
+    {
+        var k = j + currentpos;
+
+        // LFO
+        var lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5;
+
+        // Envelope
+        var e = 1;
+        if(j < this.attack)
+            e = j / this.attack;
+        else if(j >= this.attack + this.sustain)
+            e -= (j - this.attack - this.sustain) / this.release;
+
+        // Oscillator 1
+        var t = o1t;
+        if(this.instr.lfo_osc1_freq) t += lfor;
+        if(this.instr.osc1_xenv) t *= e * e;
+        c1 += t;
+        var rsample = this.osc1(c1) * this.instr.osc1_vol;
+
+        // Oscillator 2
+        t = o2t;
+        if(this.instr.osc2_xenv) t *= e * e;
+        c2 += t;
+        rsample += this.osc2(c2) * this.instr.osc2_vol;
+
+        // Noise oscillator
+        if(this.instr.noise_fader) rsample += (2*Math.random()-1) * this.instr.noise_fader * e;
+
+        rsample *= e / 255;
+
+        // State variable filter
+        var f = this.instr.fx_freq;
+        if(this.instr.lfo_fx_freq) f *= lfor;
+        f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
+        low += f * band;
+        var high = q * (rsample - band) - low;
+        band += f * high;
+        switch(this.instr.fx_filter)
+        {
+            case 1: // Hipass
+                rsample = high;
+                break;
+            case 2: // Lopass
+                rsample = low;
+                break;
+            case 3: // Bandpass
+                rsample = band;
+                break;
+            case 4: // Notch
+                rsample = low + high;
+                break;
+            default:
+        }
+
+        // Panning & master volume
+        t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
+        rsample *= 39 * this.instr.env_master;
+
+        // Add to 16-bit channel buffer
+        k <<= 2;
+        var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
+        chnBuf[k] = x & 255;
+        chnBuf[k+1] = (x >> 8) & 255;
+        x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
+        chnBuf[k+2] = x & 255;
+        chnBuf[k+3] = (x >> 8) & 255;
+    }
+};
+
 sonant.MusicGenerator = function(song) {
     //--------------------------------------------------------------------------
     // Private members
@@ -224,158 +357,13 @@ sonant.MusicGenerator = function(song) {
     // Create an HTML audio element from the generated audio data
     this.createAudio = function()
     {
-        // Local variables
-        var b, k, x, wave, l1, l2, s, y;
-
-        // Turn critical object properties into local variables (performance)
-        var mixBuf = mixBufWork,
-            waveBytes = WAVE_SIZE * WAVE_CHAN * 2;
-
-        // We no longer need the channel working buffer
-        chnBufWork = null;
-
-        // Convert to a WAVE file (in a binary string)
-        l1 = waveBytes - 8;
-        l2 = l1 - 36;
-        wave = String.fromCharCode(82,73,70,70,
-                                   l1 & 255,(l1 >> 8) & 255,(l1 >> 16) & 255,(l1 >> 24) & 255,
-                                   87,65,86,69,102,109,116,32,16,0,0,0,1,0,2,0,
-                                   68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
-                                   l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
-        for (b = 0; b < waveBytes;)
-        {
-            // This is a GC & speed trick: don't add one char at a time - batch up
-            // larger partial strings
-            x = "";
-            for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
-            {
-                // Note: We amplify and clamp here
-                y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
-                y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-                x += String.fromCharCode(y & 255, (y >> 8) & 255);
-            }
-            wave += x;
-        }
-
-        // Convert the string buffer to a base64 data uri
-        s = "data:audio/wav;base64," + btoa(wave);
-        wave = null;
-
-        // Return the music as an audio element
-        return new Audio(s);
-    };
-
-    // Get n samples of wave data at time t [s]. Wave data in range [0,1].
-    this.getData = function(t, n)
-    {
-        for (var i = Math.floor(t * WAVE_SPS), j = 0, d = [], b = mixBufWork; j < 2*n; j += 2)
-        {
-            var k = 4 * (i + j) + 1;
-            d.push(t > 0 && k < b.length ? (b[k] + b[k-1]/256) / 256 : 0.5);
-        }
-        return d;
+        return new sonant.AudioGenerator(mixBufWork, WAVE_SIZE).get();
     };
 
     this.generateSong = function() {
         for (var t = 0; t < song.songData.length; t++)
             this.generate(song.songData[t]);
     };
-};
-
-sonant.SoundGenerator = function(instr, rowLen) {
-    this.instr = instr;
-    this.rowLen = rowLen || 5605;
-    this.osc_lfo = oscillators[instr.lfo_waveform];
-    this.osc1 = oscillators[instr.osc1_waveform];
-    this.osc2 = oscillators[instr.osc2_waveform];
-    this.attack = instr.env_attack;
-    this.sustain = instr.env_sustain;
-    this.release = instr.env_release;
-    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
-    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
-};
-
-sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
-    var c1 = 0;
-    var c2 = 0;
-
-    // Precalculate frequencues
-    var o1t = getnotefreq(n + (this.instr.osc1_oct - 8) * 12 + this.instr.osc1_det) * (1 + 0.0008 * this.instr.osc1_detune);
-    var o2t = getnotefreq(n + (this.instr.osc2_oct - 8) * 12 + this.instr.osc2_det) * (1 + 0.0008 * this.instr.osc2_detune);
-
-    // State variable init
-    var q = this.instr.fx_resonance / 255;
-    var low = 0;
-    var band = 0;
-    for (var j = this.attack + this.sustain + this.release - 1; j >= 0; --j)
-    {
-        var k = j + currentpos;
-
-        // LFO
-        var lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5;
-
-        // Envelope
-        var e = 1;
-        if(j < this.attack)
-            e = j / this.attack;
-        else if(j >= this.attack + this.sustain)
-            e -= (j - this.attack - this.sustain) / this.release;
-
-        // Oscillator 1
-        var t = o1t;
-        if(this.instr.lfo_osc1_freq) t += lfor;
-        if(this.instr.osc1_xenv) t *= e * e;
-        c1 += t;
-        var rsample = this.osc1(c1) * this.instr.osc1_vol;
-
-        // Oscillator 2
-        t = o2t;
-        if(this.instr.osc2_xenv) t *= e * e;
-        c2 += t;
-        rsample += this.osc2(c2) * this.instr.osc2_vol;
-
-        // Noise oscillator
-        if(this.instr.noise_fader) rsample += (2*Math.random()-1) * this.instr.noise_fader * e;
-
-        rsample *= e / 255;
-
-        // State variable filter
-        var f = this.instr.fx_freq;
-        if(this.instr.lfo_fx_freq) f *= lfor;
-        f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
-        low += f * band;
-        var high = q * (rsample - band) - low;
-        band += f * high;
-        switch(this.instr.fx_filter)
-        {
-            case 1: // Hipass
-                rsample = high;
-                break;
-            case 2: // Lopass
-                rsample = low;
-                break;
-            case 3: // Bandpass
-                rsample = band;
-                break;
-            case 4: // Notch
-                rsample = low + high;
-                break;
-            default:
-        }
-
-        // Panning & master volume
-        t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
-        rsample *= 39 * this.instr.env_master;
-
-        // Add to 16-bit channel buffer
-        k <<= 2;
-        var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
-        chnBuf[k] = x & 255;
-        chnBuf[k+1] = (x >> 8) & 255;
-        x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
-        chnBuf[k+2] = x & 255;
-        chnBuf[k+3] = (x >> 8) & 255;
-    }
 };
 
 })();

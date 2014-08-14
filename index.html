@@ -9,7 +9,7 @@
     <script src="sonant.js"></script>
     <script>
     $(function() {
-        var songGen = new sonant(song);
+        var songGen = new sonant.MusicGenerator(song);
         var time = new Date();
         songGen.generateSong();
         var audio = songGen.createAudio();

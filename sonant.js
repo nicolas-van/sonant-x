@@ -253,6 +253,7 @@ window.sonant = function(song) {
                                     break;
                                 case 4: // Notch
                                     rsample = low + high;
+                                    break;
                                 default:
                             }
 

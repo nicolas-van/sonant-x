@@ -1,0 +1,19 @@
+{
+  "name": "js-sonant",
+  "version": "0.0.0",
+  "homepage": "https://github.com/nicolas-van/js-sonant-x",
+  "authors": [
+    "Nicolas Vanhoren <nicolas.vanhoren@gmail.com>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "devDependencies": {
+    "jquery": "~2.1.1"
+  }
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="bower_components/jquery/dist/jquery.js"></script>
+    <script src="example-songs/4k-synth.js"></script>
+    <script src="sonant.js"></script>
+    <script>
+    $(function() {
+        var songGen = new sonant.MusicGenerator(song);
+        var time = new Date();
+        songGen.generateSong();
+        var audio = songGen.createAudio();
+        var elapsed = (new Date() - time) / 1000;
+        $("#elapsed").text("Generation took " + elapsed + " seconds");
+        audio.loop = true;
+        audio.play();
+
+        var soundGen = new sonant.SoundGenerator(song.songData[0]);
+        var ag = soundGen.getAudioGenerator(142, 3);
+        $("button").click(function() {
+            ag.get().play();
+        });
+    });
+    </script>
+</head>
+<body>
+    <p><span id="elapsed">Generating...</span></p>
+    <p><button>Audio</button></p>
+</body>

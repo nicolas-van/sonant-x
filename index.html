@@ -4,19 +4,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="bower_components/jquery/dist/jquery.js"></script>
     <script src="example-songs/4k-synth.js"></script>
     <script src="sonant.js"></script>
     <script>
-    (function() {
-        "use strict";
+    $(function() {
         var songGen = new sonant(song);
+        var time = new Date();
         songGen.generateSong();
         var audio = songGen.createAudio();
+        var elapsed = (new Date() - time) / 1000;
+        $("#elapsed").text("Generation took " + elapsed + " seconds");
         audio.loop = true;
         audio.play();
-    })();
+    });
     </script>
 </head>
 <body>
-
+    <span id="elapsed">Generating...</span>
 </body>

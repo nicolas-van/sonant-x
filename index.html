@@ -12,7 +12,6 @@
         var songGen = new sonant(song);
         var time = new Date();
         songGen.generateSong();
-        //songGen.generate(song.songData[0]);
         var audio = songGen.createAudio();
         var elapsed = (new Date() - time) / 1000;
         $("#elapsed").text("Generation took " + elapsed + " seconds");

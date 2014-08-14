@@ -123,15 +123,6 @@ window.sonant = function(song) {
         return 3 - v2;
     }
 
-    // Array of oscillator functions
-    var oscillators =
-    [
-        osc_sin,
-        osc_square,
-        osc_saw,
-        osc_tri
-    ];
-
     function getnotefreq(n)
     {
         return 0.00390625 * Math.pow(1.059463094, n - 128);
@@ -151,8 +142,16 @@ window.sonant = function(song) {
     //--------------------------------------------------------------------------
 
     // Generate audio data for a single track
-    this.generate = function (instr)
+    this.generate = function (track)
     {
+        // Array of oscillator functions
+        var oscillators =
+        [
+            osc_sin,
+            osc_square,
+            osc_saw,
+            osc_tri
+        ];
 
         // Local variables
         var i, j, k, b, p, row, n, currentpos, cp,
@@ -164,7 +163,14 @@ window.sonant = function(song) {
             mixBuf = mixBufWork,
             waveSamples = WAVE_SIZE,
             waveBytes = WAVE_SIZE * WAVE_CHAN * 2,
+            instr = song.songData[track],
             rowLen = song.rowLen,
+            osc_lfo = oscillators[instr.lfo_waveform],
+            osc1 = oscillators[instr.osc1_waveform],
+            osc2 = oscillators[instr.osc2_waveform],
+            attack = instr.env_attack,
+            sustain = instr.env_sustain,
+            release = instr.env_release,
             panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen,
             lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
 
@@ -195,32 +201,32 @@ window.sonant = function(song) {
                         // State variable init
                         q = instr.fx_resonance / 255;
                         low = band = 0;
-                        for (j = instr.env_attack + instr.env_sustain + instr.env_release - 1; j >= 0; --j)
+                        for (j = attack + sustain + release - 1; j >= 0; --j)
                         {
                             k = j + currentpos;
 
                             // LFO
-                            lfor = oscillators[instr.lfo_waveform](k * lfoFreq) * instr.lfo_amt / 512 + 0.5;
+                            lfor = osc_lfo(k * lfoFreq) * instr.lfo_amt / 512 + 0.5;
 
                             // Envelope
                             e = 1;
-                            if(j < instr.env_attack)
-                                e = j / instr.env_attack;
-                            else if(j >= instr.env_attack + instr.env_sustain)
-                                e -= (j - instr.env_attack - instr.env_sustain) / instr.env_release;
+                            if(j < attack)
+                                e = j / attack;
+                            else if(j >= attack + sustain)
+                                e -= (j - attack - sustain) / release;
 
                             // Oscillator 1
                             t = o1t;
                             if(instr.lfo_osc1_freq) t += lfor;
                             if(instr.osc1_xenv) t *= e * e;
                             c1 += t;
-                            rsample = oscillators[instr.osc1_waveform](c1) * instr.osc1_vol;
+                            rsample = osc1(c1) * instr.osc1_vol;
 
                             // Oscillator 2
                             t = o2t;
                             if(instr.osc2_xenv) t *= e * e;
                             c2 += t;
-                            rsample += oscillators[instr.osc2_waveform](c2) * instr.osc2_vol;
+                            rsample += osc2(c2) * instr.osc2_vol;
 
                             // Noise oscillator
                             if(instr.noise_fader) rsample += (2*Math.random()-1) * instr.noise_fader * e;
@@ -358,7 +364,7 @@ window.sonant = function(song) {
 
     this.generateSong = function() {
         for (var t = 0; t < song.songData.length; t++)
-            this.generate(song.songData[t]);
+            this.generate(t);
     };
 };
 })();

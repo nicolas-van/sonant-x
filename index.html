@@ -17,9 +17,16 @@
         $("#elapsed").text("Generation took " + elapsed + " seconds");
         audio.loop = true;
         audio.play();
+
+        var soundGen = new sonant.SoundGenerator(song.songData[0]);
+        var ag = soundGen.getAudioGenerator(142, 3);
+        $("button").click(function() {
+            ag.get().play();
+        });
     });
     </script>
 </head>
 <body>
-    <span id="elapsed">Generating...</span>
+    <p><span id="elapsed">Generating...</span></p>
+    <p><button>Audio</button></p>
 </body>

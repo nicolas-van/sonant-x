@@ -85,6 +85,22 @@ function getnotefreq(n)
     return 0.00390625 * Math.pow(1.059463094, n - 128);
 }
 
+function genBuffer(waveSize, dirty) {
+    var size = Math.ceil(Math.sqrt(waveSize * WAVE_CHAN / 2));
+
+    // Create the channel work buffer
+    var buf = ctx.createImageData(size, size).data;
+
+    if (! dirty) {
+        for(var b = size * size * 4 - 2; b >= 0 ; b -= 2)
+        {
+            buf[b] = 0;
+            buf[b + 1] = 128;
+        }
+    }
+    return buf;
+}
+
 var ctx = document.createElement('canvas').getContext('2d');
 
 sonant.AudioGenerator = function(mixBuf, waveSize) {
@@ -219,6 +235,11 @@ sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
         chnBuf[k+3] = (x >> 8) & 255;
     }
 };
+sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration) {
+    var buffer = genBuffer(duration * WAVE_SPS);
+    this.genSound(n, buffer, 0);
+    return new sonant.AudioGenerator(buffer, duration * WAVE_SPS);
+};
 
 sonant.MusicGenerator = function(song) {
     //--------------------------------------------------------------------------
@@ -240,38 +261,8 @@ sonant.MusicGenerator = function(song) {
     var WAVE_SIZE = WAVE_SPS * song.songLen; // Total song size (in samples)
  
     // Work buffers
-    var chnBufWork, mixBufWork;
-
-
-    //--------------------------------------------------------------------------
-    // Private methods
-    //--------------------------------------------------------------------------
-
-    // Initialize buffers etc. (constructor)
-    (function ()
-    {
-        // Note 1: We use a CanvasPixelArray instead of a traditional ECMAScript
-        // array of numbers, since that gives us a typed byte array (much more
-        // compact, and quite fast).
-        //
-        // Note 2: We would LIKE to create an (N x 1) bitmap buffer, but some
-        // browsers (hrrr-o-mme...) have an upper bitmap size limit of
-        // 32767 x 32767, so we create a square bitmap buffer (with some
-        // trailing bytes that we don't care too much about)
-        var size = Math.ceil(Math.sqrt(WAVE_SIZE * WAVE_CHAN / 2));
-
-        // Create the channel work buffer
-        chnBufWork = ctx.createImageData(size, size).data;
-
-        // Create & clear the channel mix buffer
-        var mixBuf = ctx.createImageData(size, size).data;
-        for(var b = size * size * 4 - 2; b >= 0 ; b -= 2)
-        {
-            mixBuf[b] = 0;
-            mixBuf[b + 1] = 128;
-        }
-        mixBufWork = mixBuf;
-    })();
+    var chnBufWork = genBuffer(WAVE_SIZE, true);
+    var mixBufWork = genBuffer(WAVE_SIZE);
 
     //--------------------------------------------------------------------------
     // Public members

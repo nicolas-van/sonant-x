@@ -122,7 +122,7 @@ window.sonant = function(song) {
         if(v2 < 2) return v2 - 1;
         return 3 - v2;
     }
-    
+
     // Array of oscillator functions
     var oscillators =
     [
@@ -154,11 +154,6 @@ window.sonant = function(song) {
     this.generate = function (instr)
     {
 
-        // Local variables
-        var i, j, k, b, p, row, n, currentpos, cp,
-            c1, c2, q, low, band, high, t, lfor, e, x,
-            rsample, f, da, o1t, o2t;
-
         // Preload/precalc some properties/expressions (for improved performance)
         var chnBuf = chnBufWork,
             mixBuf = mixBufWork,
@@ -175,52 +170,54 @@ window.sonant = function(song) {
             lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
 
         // Clear buffer
-        for(b = 0; b < waveBytes; b += 2)
+        for(var b = 0; b < waveBytes; b += 2)
         {
             chnBuf[b] = 0;
             chnBuf[b+1] = 128;
         }
 
-        currentpos = 0;
-        for(p = 0; p < song.endPattern - 1; ++p) // Patterns
+        var currentpos = 0;
+        for(var p = 0; p < song.endPattern - 1; ++p) // Patterns
         {
-            cp = instr.p[p];
-            for(row = 0;row < 32; ++row) // Rows
+            var cp = instr.p[p];
+            for(var row = 0;row < 32; ++row) // Rows
             {
                 if(cp)
                 {
-                    n = instr.c[cp - 1].n[row];
+                    var n = instr.c[cp - 1].n[row];
                     if(n)
                     {
-                        c1 = c2 = 0;
+                        var c1 = 0;
+                        var c2 = 0;
 
                         // Precalculate frequencues
-                        o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
-                        o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
+                        var o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
+                        var o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
 
                         // State variable init
-                        q = instr.fx_resonance / 255;
-                        low = band = 0;
-                        for (j = attack + sustain + release - 1; j >= 0; --j)
+                        var q = instr.fx_resonance / 255;
+                        var low = 0;
+                        var band = 0;
+                        for (var j = attack + sustain + release - 1; j >= 0; --j)
                         {
-                            k = j + currentpos;
+                            var k = j + currentpos;
 
                             // LFO
-                            lfor = osc_lfo(k * lfoFreq) * instr.lfo_amt / 512 + 0.5;
+                            var lfor = osc_lfo(k * lfoFreq) * instr.lfo_amt / 512 + 0.5;
 
                             // Envelope
-                            e = 1;
+                            var e = 1;
                             if(j < attack)
                                 e = j / attack;
                             else if(j >= attack + sustain)
                                 e -= (j - attack - sustain) / release;
 
                             // Oscillator 1
-                            t = o1t;
+                            var t = o1t;
                             if(instr.lfo_osc1_freq) t += lfor;
                             if(instr.osc1_xenv) t *= e * e;
                             c1 += t;
-                            rsample = osc1(c1) * instr.osc1_vol;
+                            var rsample = osc1(c1) * instr.osc1_vol;
 
                             // Oscillator 2
                             t = o2t;
@@ -234,11 +231,11 @@ window.sonant = function(song) {
                             rsample *= e / 255;
 
                             // State variable filter
-                            f = instr.fx_freq;
+                            var f = instr.fx_freq;
                             if(instr.lfo_fx_freq) f *= lfor;
                             f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
                             low += f * band;
-                            high = q * (rsample - band) - low;
+                            var high = q * (rsample - band) - low;
                             band += f * high;
                             switch(instr.fx_filter)
                             {
@@ -263,7 +260,7 @@ window.sonant = function(song) {
 
                             // Add to 16-bit channel buffer
                             k <<= 2;
-                            x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
+                            var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
                             chnBuf[k] = x & 255;
                             chnBuf[k+1] = (x >> 8) & 255;
                             x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
@@ -277,33 +274,33 @@ window.sonant = function(song) {
         }
 
         // Delay
-        p = (instr.fx_delay_time * rowLen) >> 1;
-        t = instr.fx_delay_amt / 255;
+        var p1 = (instr.fx_delay_time * rowLen) >> 1;
+        var t1 = instr.fx_delay_amt / 255;
 
-        for(n = 0; n < waveSamples - p; ++n)
+        for(var n1 = 0; n1 < waveSamples - p1; ++n1)
         {
-            b = 4 * n;
-            k = 4 * (n + p);
+            var b1 = 4 * n1;
+            var l = 4 * (n1 + p1);
 
-            // Left channel = left + right[-p] * t
-            x = chnBuf[k] + (chnBuf[k+1] << 8) +
-                (chnBuf[b+2] + (chnBuf[b+3] << 8) - 32768) * t;
-            chnBuf[k] = x & 255;
-            chnBuf[k+1] = (x >> 8) & 255;
+            // Left channel = left + right[-p1] * t1
+            var x1 = chnBuf[l] + (chnBuf[l+1] << 8) +
+                (chnBuf[b1+2] + (chnBuf[b1+3] << 8) - 32768) * t1;
+            chnBuf[l] = x1 & 255;
+            chnBuf[l+1] = (x1 >> 8) & 255;
 
-            // Right channel = right + left[-p] * t
-            x = chnBuf[k+2] + (chnBuf[k+3] << 8) +
-                (chnBuf[b] + (chnBuf[b+1] << 8) - 32768) * t;
-            chnBuf[k+2] = x & 255;
-            chnBuf[k+3] = (x >> 8) & 255;
+            // Right channel = right + left[-p1] * t1
+            x1 = chnBuf[l+2] + (chnBuf[l+3] << 8) +
+                (chnBuf[b1] + (chnBuf[b1+1] << 8) - 32768) * t1;
+            chnBuf[l+2] = x1 & 255;
+            chnBuf[l+3] = (x1 >> 8) & 255;
         }
 
         // Add to mix buffer
-        for(b = 0; b < waveBytes; b += 2)
+        for(var b2 = 0; b2 < waveBytes; b2 += 2)
         {
-            x = mixBuf[b] + (mixBuf[b+1] << 8) + chnBuf[b] + (chnBuf[b+1] << 8) - 32768;
-            mixBuf[b] = x & 255;
-            mixBuf[b+1] = (x >> 8) & 255;
+            var x2 = mixBuf[b2] + (mixBuf[b2+1] << 8) + chnBuf[b2] + (chnBuf[b2+1] << 8) - 32768;
+            mixBuf[b2] = x2 & 255;
+            mixBuf[b2+1] = (x2 >> 8) & 255;
         }
     };
 

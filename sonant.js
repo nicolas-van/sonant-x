@@ -45,6 +45,7 @@
 window.sonant = {};
 
 var WAVE_SPS = 44100;                    // Samples per second
+var WAVE_CHAN = 2;                       // Channels
 
 // Oscillators
 function osc_sin(value)
@@ -84,6 +85,8 @@ function getnotefreq(n)
     return 0.00390625 * Math.pow(1.059463094, n - 128);
 }
 
+var ctx = document.createElement('canvas').getContext('2d');
+
 sonant.MusicGenerator = function(song) {
     //--------------------------------------------------------------------------
     // Private members
@@ -101,7 +104,6 @@ sonant.MusicGenerator = function(song) {
     //**************************************************************************
 
     // Wave data configuration
-    var WAVE_CHAN = 2;                       // Channels
     var WAVE_SIZE = WAVE_SPS * song.songLen; // Total song size (in samples)
  
     // Work buffers
@@ -125,14 +127,12 @@ sonant.MusicGenerator = function(song) {
         // trailing bytes that we don't care too much about)
         var size = Math.ceil(Math.sqrt(WAVE_SIZE * WAVE_CHAN / 2));
 
-        var ctx = document.createElement('canvas').getContext('2d');
-
         // Create the channel work buffer
         chnBufWork = ctx.createImageData(size, size).data;
 
         // Create & clear the channel mix buffer
-        var b, mixBuf = ctx.createImageData(size, size).data;
-        for(b = size * size * 4 - 2; b >= 0 ; b -= 2)
+        var mixBuf = ctx.createImageData(size, size).data;
+        for(var b = size * size * 4 - 2; b >= 0 ; b -= 2)
         {
             mixBuf[b] = 0;
             mixBuf[b + 1] = 128;
@@ -163,7 +163,7 @@ sonant.MusicGenerator = function(song) {
             waveBytes = WAVE_SIZE * WAVE_CHAN * 2,
             rowLen = song.rowLen;
 
-        var soundGen = new sonant.SoundGenerator(instr, chnBuf, rowLen);
+        var soundGen = new sonant.SoundGenerator(instr, rowLen);
 
         // Clear buffer
         for(var b = 0; b < waveBytes; b += 2)
@@ -183,7 +183,7 @@ sonant.MusicGenerator = function(song) {
                     var n = instr.c[cp - 1].n[row];
                     if(n)
                     {
-                        soundGen.genSound(n, currentpos);
+                        soundGen.genSound(n, chnBuf, currentpos);
                     }
                 }
                 currentpos += rowLen;
@@ -282,20 +282,20 @@ sonant.MusicGenerator = function(song) {
     };
 };
 
-sonant.SoundGenerator = function(instr, chnBuf, rowLen) {
+sonant.SoundGenerator = function(instr, rowLen) {
     this.instr = instr;
-    this.chnBuf = chnBuf;
+    this.rowLen = rowLen || 5605;
     this.osc_lfo = oscillators[instr.lfo_waveform];
     this.osc1 = oscillators[instr.osc1_waveform];
     this.osc2 = oscillators[instr.osc2_waveform];
     this.attack = instr.env_attack;
     this.sustain = instr.env_sustain;
     this.release = instr.env_release;
-    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen;
-    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
+    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
+    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
 };
 
-sonant.SoundGenerator.prototype.genSound = function(n, currentpos) {
+sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
     var c1 = 0;
     var c2 = 0;
 
@@ -369,12 +369,12 @@ sonant.SoundGenerator.prototype.genSound = function(n, currentpos) {
 
         // Add to 16-bit channel buffer
         k <<= 2;
-        var x = this.chnBuf[k] + (this.chnBuf[k+1] << 8) + rsample * (1 - t);
-        this.chnBuf[k] = x & 255;
-        this.chnBuf[k+1] = (x >> 8) & 255;
-        x = this.chnBuf[k+2] + (this.chnBuf[k+3] << 8) + rsample * t;
-        this.chnBuf[k+2] = x & 255;
-        this.chnBuf[k+3] = (x >> 8) & 255;
+        var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
+        chnBuf[k] = x & 255;
+        chnBuf[k+1] = (x >> 8) & 255;
+        x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
+        chnBuf[k+2] = x & 255;
+        chnBuf[k+3] = (x >> 8) & 255;
     }
 };
 

@@ -1,8 +1,9 @@
-    //--------------------------------------------------------------------------
-    // Description:
-    // This is the song used in the 4k synth demo (synth.bitsnbites.eu)
-    //--------------------------------------------------------------------------
-
+//--------------------------------------------------------------------------
+// Description:
+// This is the song used in the 4k synth demo (synth.bitsnbites.eu)
+//--------------------------------------------------------------------------
+(function() {
+	"use strict";
     // Song data
     window.song = {
         // Song length in seconds (how much data to generate)
@@ -379,4 +380,4 @@
         rowLen: 5605,   // In sample lengths
         endPattern: 30  // End pattern
     };
-
+})();

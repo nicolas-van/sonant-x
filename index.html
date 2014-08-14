@@ -8,9 +8,9 @@
     <script src="sonant.js"></script>
     <script>
     (function() {
-        var songGen = new sonant();
-        for (var t = 0; t <= 6; t++)
-            songGen.generate(t);
+        "use strict";
+        var songGen = new sonant(song);
+        songGen.generateSong();
         var audio = songGen.createAudio();
         audio.loop = true;
         audio.play();

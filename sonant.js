@@ -40,9 +40,9 @@
 //   audio.play();
 //
 //------------------------------------------------------------------------------
-
-var sonant = function()
-{
+(function() {
+"use strict";
+window.sonant = function(song) {
     //--------------------------------------------------------------------------
     // Private members
     //--------------------------------------------------------------------------
@@ -360,5 +360,11 @@ var sonant = function()
         }
         return d;
     };
+
+    this.generateSong = function() {
+        for (var t = 0; t < song.songData.length; t++)
+            this.generate(t);
+    };
 };
+})();
 

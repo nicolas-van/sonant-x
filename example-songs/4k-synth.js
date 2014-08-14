@@ -4,7 +4,7 @@
     //--------------------------------------------------------------------------
 
     // Song data
-    var song = {
+    window.song = {
         // Song length in seconds (how much data to generate)
         songLen: 125,
 

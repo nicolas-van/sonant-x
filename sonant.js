@@ -122,6 +122,15 @@ window.sonant = function(song) {
         if(v2 < 2) return v2 - 1;
         return 3 - v2;
     }
+    
+    // Array of oscillator functions
+    var oscillators =
+    [
+        osc_sin,
+        osc_square,
+        osc_saw,
+        osc_tri
+    ];
 
     function getnotefreq(n)
     {
@@ -142,16 +151,8 @@ window.sonant = function(song) {
     //--------------------------------------------------------------------------
 
     // Generate audio data for a single track
-    this.generate = function (track)
+    this.generate = function (instr)
     {
-        // Array of oscillator functions
-        var oscillators =
-        [
-            osc_sin,
-            osc_square,
-            osc_saw,
-            osc_tri
-        ];
 
         // Local variables
         var i, j, k, b, p, row, n, currentpos, cp,
@@ -163,7 +164,6 @@ window.sonant = function(song) {
             mixBuf = mixBufWork,
             waveSamples = WAVE_SIZE,
             waveBytes = WAVE_SIZE * WAVE_CHAN * 2,
-            instr = song.songData[track],
             rowLen = song.rowLen,
             osc_lfo = oscillators[instr.lfo_waveform],
             osc1 = oscillators[instr.osc1_waveform],
@@ -364,7 +364,7 @@ window.sonant = function(song) {
 
     this.generateSong = function() {
         for (var t = 0; t < song.songData.length; t++)
-            this.generate(t);
+            this.generate(song.songData[t]);
     };
 };
 })();

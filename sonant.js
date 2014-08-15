@@ -173,7 +173,7 @@ var createAudioGenerator = function(mixBuf, waveSize, callBack) {
             }
             wave += x;
             count += 1;
-            if (count % 100000 === 0 && (new Date() - beginning > MAX_TIME)) {
+            if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
                 setTimeout(iterate, 0);
                 return;
             }

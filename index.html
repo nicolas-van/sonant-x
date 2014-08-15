@@ -14,8 +14,13 @@
         songGen.createAudio(function(audio) {
             var elapsed = (new Date() - time) / 1000;
             $("#elapsed").text("Generation took " + elapsed + " seconds");
+            audio.preload = "none";
+            console.log("before load");
+            audio.load();
+            console.log("after load");
             audio.loop = true;
             audio.play();
+            console.log("after play");
         });
 
         var soundGen = new sonant.SoundGenerator(song.songData[0]);
@@ -31,9 +36,21 @@
         sun.src = 'https://mdn.mozillademos.org/files/1456/Canvas_sun.png';
         moon.src = 'https://mdn.mozillademos.org/files/1443/Canvas_moon.png';
         earth.src = 'https://mdn.mozillademos.org/files/1429/Canvas_earth.png';
+
+        var lastCheck = new Date();
+        var biggestDownTime = -1;
+
         setTimeout(draw, 0);
 
         function draw() {
+            var now = new Date();
+            var downTime = now - lastCheck;
+            if (downTime > biggestDownTime) {
+                biggestDownTime = downTime;
+                $("#downtime").text("Downtime: " + (downTime / 1000) + " seconds");
+            }
+            lastCheck = now;
+
             var ctx = document.getElementById('canvas').getContext('2d');
 
             ctx.globalCompositeOperation = 'destination-over';
@@ -72,6 +89,7 @@
 </head>
 <body>
     <p><span id="elapsed">Generating...</span></p>
+    <p><span id="downtime"></span></p>
     <p><button>Audio</button></p>
     <canvas id="canvas" width="300" height="300"></canvas>
 </body>

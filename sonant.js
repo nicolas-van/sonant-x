@@ -89,13 +89,12 @@ function getnotefreq(n)
 }
 
 function genBuffer(waveSize, dirty, callBack) {
-    var size = Math.ceil(Math.sqrt(waveSize * WAVE_CHAN / 2));
     setTimeout(function() {
         // Create the channel work buffer
-        var buf = ctx.createImageData(size, size).data;
+        var buf = new Uint8Array(waveSize * WAVE_CHAN * 2);
         setTimeout(function() {
             if (! dirty) {
-                for(var b = size * size * 4 - 2; b >= 0 ; b -= 2)
+                for(var b = buf.length - 2; b >= 0 ; b -= 2)
                 {
                     buf[b] = 0;
                     buf[b + 1] = 128;
@@ -142,11 +141,9 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen, callBack) {
     setTimeout(iterate, 0);
 }
 
-var ctx = document.createElement('canvas').getContext('2d');
-
-sonant.AudioGenerator = function(mixBuf, waveSize) {
+sonant.AudioGenerator = function(mixBuf) {
     this.mixBuf = mixBuf;
-    this.waveSize = waveSize;
+    this.waveSize = mixBuf.length / WAVE_CHAN / 2;
 };
 sonant.AudioGenerator.prototype.getAudio = function() {
     var mixBuf = this.mixBuf;

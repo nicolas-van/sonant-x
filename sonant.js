@@ -40,9 +40,10 @@
 //   audio.play();
 //
 //------------------------------------------------------------------------------
+var sonant;
 (function() {
 "use strict";
-window.sonant = {};
+sonant = {};
 
 var WAVE_SPS = 44100;                    // Samples per second
 var WAVE_CHAN = 2;                       // Channels
@@ -94,13 +95,15 @@ function genBuffer(waveSize, dirty, callBack) {
         var buf = new Uint8Array(waveSize * WAVE_CHAN * 2);
         setTimeout(function() {
             if (! dirty) {
-                for(var b = buf.length - 2; b >= 0 ; b -= 2)
+                var b = buf.length - 2;
+                while(b >= 0)
                 {
                     buf[b] = 0;
                     buf[b + 1] = 128;
+                    b -= 2;
                 }
             }
-            callBack(buf);
+            setTimeout(function() {callBack(buf);}, 0);
         }, 0);
     }, 0);
 }
@@ -136,7 +139,7 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen, callBack) {
                 return;
             }
         }
-        callBack();
+        setTimeout(callBack, 0);
     };
     setTimeout(iterate, 0);
 }
@@ -210,7 +213,7 @@ sonant.AudioGenerator.prototype.getAudioBuffer = function(callBack) {
                 return;
             }
         }
-        callBack(buffer);
+        setTimeout(function() {callBack(buffer);}, 0);
     };
     setTimeout(iterate, 0);
 };
@@ -316,7 +319,7 @@ sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration, callBa
     genBuffer(duration * WAVE_SPS, false, function(buffer) {
         self.genSound(n, buffer, 0);
         applyDelay(buffer, duration * WAVE_SPS, self.instr, self.rowLen, function() {
-            callBack(new sonant.AudioGenerator(buffer, duration * WAVE_SPS));
+            callBack(new sonant.AudioGenerator(buffer));
         });
     });
 };
@@ -421,7 +424,7 @@ sonant.MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBac
                 return;
             }
         }
-        callBack();
+        setTimeout(callBack, 0);
     };
 
     setTimeout(recordSounds, 0);
@@ -435,7 +438,7 @@ sonant.MusicGenerator.prototype.getAudioGenerator = function(callBack) {
                 t += 1;
                 self.generateTrack(self.song.songData[t - 1], mixBuf, recu);
             } else {
-                callBack(new sonant.AudioGenerator(mixBuf, self.waveSize));
+                callBack(new sonant.AudioGenerator(mixBuf));
             }
         };
         recu();

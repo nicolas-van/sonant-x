@@ -19,9 +19,10 @@
         });
 
         var soundGen = new sonant.SoundGenerator(song.songData[0]);
-        var ag = soundGen.getAudioGenerator(142, 3);
-        $("button").click(function() {
-            ag.get().play();
+        soundGen.getAudioGenerator(142, 3, function(ag) {
+            $("button").click(function() {
+                ag.get().play();
+            });
         });
 
         var sun = new Image();

@@ -104,7 +104,7 @@ function genBuffer(waveSize, dirty) {
 
 var ctx = document.createElement('canvas').getContext('2d');
 
-sonant.AudioGenerator = function(mixBuf, waveSize) {
+var createAudioGenerator = function(mixBuf, waveSize, callBack) {
     // Local variables
     var b, k, x, wave, l1, l2, s, y;
 
@@ -119,26 +119,56 @@ sonant.AudioGenerator = function(mixBuf, waveSize) {
                                87,65,86,69,102,109,116,32,16,0,0,0,1,0,2,0,
                                68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
                                l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
-    for (b = 0; b < waveBytes;)
-    {
-        // This is a GC & speed trick: don't add one char at a time - batch up
-        // larger partial strings
-        x = "";
-        for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
+    var b = 0;
+    var iterate = function() {
+        var beginning = new Date();
+        var count = 0;
+        while(b < waveBytes)
         {
-            // Note: We amplify and clamp here
-            y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
-            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            x += String.fromCharCode(y & 255, (y >> 8) & 255);
+            // This is a GC & speed trick: don't add one char at a time - batch up
+            // larger partial strings
+            x = "";
+            for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
+            {
+                // Note: We amplify and clamp here
+                y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
+                y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+                x += String.fromCharCode(y & 255, (y >> 8) & 255);
+            }
+            wave += x;
+            count += 1;
+            if (count % 100000 === 0 && (new Date() - beginning > MAX_TIME)) {
+                setTimeout(iterate, 0);
+                return;
+            }
         }
-        wave += x;
-    }
+        finalize();
+    };
+    var j = 0;
+    var s = "data:audio/wav;base64,";
+    var step = Math.pow(2, 10) * 3;
+    var finalize = function() {
+        var beginning = new Date();
+        // Convert the string buffer to a base64 data uri
+        while (j < wave.length) {
+            s += btoa(wave.slice(j, j + step));
+            j += step;
+            if (new Date() - beginning > MAX_TIME) {
+                setTimeout(finalize, 0);
+                return;
+            }
+        }
+        callBack(new sonant.AudioGenerator(s));
+    };
+    setTimeout(iterate, 0);
+};
 
-    // Convert the string buffer to a base64 data uri
-    this.s = "data:audio/wav;base64," + btoa(wave);
+sonant.AudioGenerator = function(s) {
+    this.s = s;
 };
 sonant.AudioGenerator.prototype.get = function() {
-    return new Audio(this.s);
+    var a = new Audio(this.s);
+    return a;
 };
 
 sonant.SoundGenerator = function(instr, rowLen) {
@@ -155,6 +185,7 @@ sonant.SoundGenerator = function(instr, rowLen) {
     this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
 };
 sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
+    var marker = new Date();
     var c1 = 0;
     var c2 = 0;
 
@@ -236,10 +267,10 @@ sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
         chnBuf[k+3] = (x >> 8) & 255;
     }
 };
-sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration) {
+sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration, callBack) {
     var buffer = genBuffer(duration * WAVE_SPS);
     this.genSound(n, buffer, 0);
-    return new sonant.AudioGenerator(buffer, duration * WAVE_SPS);
+    createAudioGenerator(buffer, duration * WAVE_SPS, callBack);
 };
 
 sonant.MusicGenerator = function(song) {
@@ -372,7 +403,7 @@ sonant.MusicGenerator.prototype.getAudioGenerator = function(callBack) {
             t += 1;
             self.generateTrack(self.song.songData[t - 1], mixBuf, recu);
         } else {
-            callBack(new sonant.AudioGenerator(mixBuf, self.waveSize));
+            createAudioGenerator(mixBuf, self.waveSize, callBack);
         }
     };
     recu();

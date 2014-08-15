@@ -48,6 +48,8 @@ var WAVE_SPS = 44100;                    // Samples per second
 var WAVE_CHAN = 2;                       // Channels
 var MAX_TIME = 33; // maximum time, in millis, that the generator can use consecutively
 
+var audioCtx = null;
+
 // Oscillators
 function osc_sin(value)
 {
@@ -90,7 +92,9 @@ function genBuffer(waveSize, dirty) {
     var size = Math.ceil(Math.sqrt(waveSize * WAVE_CHAN / 2));
 
     // Create the channel work buffer
+    var begin = new Date();
     var buf = ctx.createImageData(size, size).data;
+    console.log("end: " + (new Date() - begin));
 
     if (! dirty) {
         for(var b = size * size * 4 - 2; b >= 0 ; b -= 2)
@@ -128,7 +132,7 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen, callBack) {
             chnBuf[l+3] = (x1 >> 8) & 255;
             ++n1;
             count += 1;
-            if (count % 100000 === 0 && (new Date() - beginning) > MAX_TIME) {
+            if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
                 setTimeout(iterate, 0);
                 return;
             }
@@ -140,7 +144,13 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen, callBack) {
 
 var ctx = document.createElement('canvas').getContext('2d');
 
-var createAudioGenerator = function(mixBuf, waveSize, callBack) {
+sonant.AudioGenerator = function(mixBuf, waveSize) {
+    this.mixBuf = mixBuf;
+    this.waveSize = waveSize;
+};
+sonant.AudioGenerator.prototype.getAudio = function() {
+    var mixBuf = this.mixBuf;
+    var waveSize = this.waveSize;
     // Local variables
     var b, k, x, wave, l1, l2, s, y;
 
@@ -156,55 +166,56 @@ var createAudioGenerator = function(mixBuf, waveSize, callBack) {
                                68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
                                l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
     var b = 0;
+    while(b < waveBytes)
+    {
+        // This is a GC & speed trick: don't add one char at a time - batch up
+        // larger partial strings
+        x = "";
+        for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
+        {
+            // Note: We amplify and clamp here
+            y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            x += String.fromCharCode(y & 255, (y >> 8) & 255);
+        }
+        wave += x;
+    }
+    var a = new Audio("data:audio/wav;base64," + btoa(wave));
+    a.preload = "none";
+    a.load();
+    return a;
+};
+sonant.AudioGenerator.prototype.getAudioBuffer = function(callBack) {
+    if (audioCtx == null)
+        audioCtx = new AudioContext();
+    var mixBuf = this.mixBuf;
+    var waveSize = this.waveSize;
+
+    var waveBytes = waveSize * WAVE_CHAN * 2;
+    var buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS); // Create Mono Source Buffer from Raw Binary
+    var lchan = buffer.getChannelData(0);
+    var rchan = buffer.getChannelData(1);
+    var b = 0;
     var iterate = function() {
         var beginning = new Date();
         var count = 0;
-        while(b < waveBytes)
-        {
-            // This is a GC & speed trick: don't add one char at a time - batch up
-            // larger partial strings
-            x = "";
-            for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
-            {
-                // Note: We amplify and clamp here
-                y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
-                y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-                x += String.fromCharCode(y & 255, (y >> 8) & 255);
-            }
-            wave += x;
+        while (b < (waveBytes / 2)) {
+            var y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            lchan[b] = y / 32768;
+            y = 4 * (mixBuf[(b * 4) + 2] + (mixBuf[(b * 4) + 3] << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            rchan[b] = y / 32768;
+            b += 1;
             count += 1;
-            if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
+            if (count % 1000 === 0 && new Date() - beginning > MAX_TIME) {
                 setTimeout(iterate, 0);
                 return;
             }
         }
-        finalize();
-    };
-    var j = 0;
-    var s = "data:audio/wav;base64,";
-    var step = Math.pow(2, 10) * 3;
-    var finalize = function() {
-        var beginning = new Date();
-        // Convert the string buffer to a base64 data uri
-        while (j < wave.length) {
-            s += btoa(wave.slice(j, j + step));
-            j += step;
-            if (new Date() - beginning > MAX_TIME) {
-                setTimeout(finalize, 0);
-                return;
-            }
-        }
-        callBack(new sonant.AudioGenerator(s));
+        callBack(buffer);
     };
     setTimeout(iterate, 0);
-};
-
-sonant.AudioGenerator = function(s) {
-    this.s = s;
-};
-sonant.AudioGenerator.prototype.get = function() {
-    var a = new Audio(this.s);
-    return a;
 };
 
 sonant.SoundGenerator = function(instr, rowLen) {
@@ -307,7 +318,17 @@ sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration, callBa
     var buffer = genBuffer(duration * WAVE_SPS);
     this.genSound(n, buffer, 0);
     applyDelay(buffer, duration * WAVE_SPS, this.instr, this.rowLen, function() {
-        createAudioGenerator(buffer, duration * WAVE_SPS, callBack);
+        callBack(new sonant.AudioGenerator(buffer, duration * WAVE_SPS));
+    });
+};
+sonant.SoundGenerator.prototype.createAudio = function(n, duration, callBack) {
+    this.getAudioGenerator(n, duration, function(ag) {
+        callBack(ag.getAudio());
+    });
+};
+sonant.SoundGenerator.prototype.createAudioBuffer = function(n, duration, callBack) {
+    this.getAudioGenerator(n, duration, function(ag) {
+        ag.getAudioBuffer(callBack);
     });
 };
 
@@ -389,7 +410,7 @@ sonant.MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBac
             mixBuf[b2+1] = (x2 >> 8) & 255;
             b2 += 2;
             count += 1;
-            if (count % 100000 == 0 && (new Date() - beginning) > MAX_TIME) {
+            if (count % 1000 == 0 && (new Date() - beginning) > MAX_TIME) {
                 setTimeout(finalize, 0);
                 return;
             }
@@ -398,13 +419,6 @@ sonant.MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBac
     };
 
     setTimeout(recordSounds, 0);
-};
-// Create an HTML audio element from the generated audio data
-sonant.MusicGenerator.prototype.createAudio = function(callBack)
-{
-    this.getAudioGenerator(function(ag) {
-        callBack(ag.get());
-    });
 };
 sonant.MusicGenerator.prototype.getAudioGenerator = function(callBack) {
     var self = this;
@@ -415,10 +429,20 @@ sonant.MusicGenerator.prototype.getAudioGenerator = function(callBack) {
             t += 1;
             self.generateTrack(self.song.songData[t - 1], mixBuf, recu);
         } else {
-            createAudioGenerator(mixBuf, self.waveSize, callBack);
+            callBack(new sonant.AudioGenerator(mixBuf, self.waveSize));
         }
     };
     recu();
+};
+sonant.MusicGenerator.prototype.createAudio = function(callBack) {
+    this.getAudioGenerator(function(ag) {
+        callBack(ag.getAudio());
+    });
+};
+sonant.MusicGenerator.prototype.createAudioBuffer = function(callBack) {
+    this.getAudioGenerator(function(ag) {
+        ag.getAudioBuffer(callBack);
+    });
 };
 
 })();

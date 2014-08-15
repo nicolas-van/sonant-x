@@ -9,24 +9,26 @@
     <script src="sonant.js"></script>
     <script>
     $(function() {
+        var audioCtx = new AudioContext();
         var songGen = new sonant.MusicGenerator(song);
         var time = new Date();
-        songGen.createAudio(function(audio) {
+        songGen.createAudioBuffer(function(buffer) {
+            var source = audioCtx.createBufferSource(); // Create Sound Source
+            source.buffer = buffer; // Add Buffered Data to Object
+            source.connect(audioCtx.destination); // Connect Sound Source to Output
+            source.start();
+
             var elapsed = (new Date() - time) / 1000;
             $("#elapsed").text("Generation took " + elapsed + " seconds");
-            audio.preload = "none";
-            console.log("before load");
-            audio.load();
-            console.log("after load");
-            audio.loop = true;
-            audio.play();
-            console.log("after play");
         });
 
         var soundGen = new sonant.SoundGenerator(song.songData[0]);
-        soundGen.getAudioGenerator(142, 3, function(ag) {
+        soundGen.createAudioBuffer(142, 3, function(buffer) {
             $("button").click(function() {
-                ag.get().play();
+                var source = audioCtx.createBufferSource(); // Create Sound Source
+                source.buffer = buffer; // Add Buffered Data to Object
+                source.connect(audioCtx.destination); // Connect Sound Source to Output
+                source.start();
             });
         });
 

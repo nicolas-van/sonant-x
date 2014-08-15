@@ -101,6 +101,29 @@ function genBuffer(waveSize, dirty) {
     return buf;
 }
 
+function applyDelay(chnBuf, waveSamples, instr, rowLen) {
+    var p1 = (instr.fx_delay_time * rowLen) >> 1;
+    var t1 = instr.fx_delay_amt / 255;
+
+    for(var n1 = 0; n1 < waveSamples - p1; ++n1)
+    {
+        var b1 = 4 * n1;
+        var l = 4 * (n1 + p1);
+
+        // Left channel = left + right[-p1] * t1
+        var x1 = chnBuf[l] + (chnBuf[l+1] << 8) +
+            (chnBuf[b1+2] + (chnBuf[b1+3] << 8) - 32768) * t1;
+        chnBuf[l] = x1 & 255;
+        chnBuf[l+1] = (x1 >> 8) & 255;
+
+        // Right channel = right + left[-p1] * t1
+        x1 = chnBuf[l+2] + (chnBuf[l+3] << 8) +
+            (chnBuf[b1] + (chnBuf[b1+1] << 8) - 32768) * t1;
+        chnBuf[l+2] = x1 & 255;
+        chnBuf[l+3] = (x1 >> 8) & 255;
+    }
+}
+
 var ctx = document.createElement('canvas').getContext('2d');
 
 sonant.AudioGenerator = function(mixBuf, waveSize) {
@@ -238,6 +261,7 @@ sonant.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
 sonant.SoundGenerator.prototype.getAudioGenerator = function(n, duration) {
     var buffer = genBuffer(duration * WAVE_SPS);
     this.genSound(n, buffer, 0);
+    applyDelay(buffer, duration * WAVE_SPS, this.instr, this.rowLen);
     return new sonant.AudioGenerator(buffer, duration * WAVE_SPS);
 };
 
@@ -286,27 +310,7 @@ sonant.MusicGenerator.prototype.generateTrack = function (instr, mixBuf) {
         }
     }
 
-    // Delay
-    var p1 = (instr.fx_delay_time * rowLen) >> 1;
-    var t1 = instr.fx_delay_amt / 255;
-
-    for(var n1 = 0; n1 < waveSamples - p1; ++n1)
-    {
-        var b1 = 4 * n1;
-        var l = 4 * (n1 + p1);
-
-        // Left channel = left + right[-p1] * t1
-        var x1 = chnBuf[l] + (chnBuf[l+1] << 8) +
-            (chnBuf[b1+2] + (chnBuf[b1+3] << 8) - 32768) * t1;
-        chnBuf[l] = x1 & 255;
-        chnBuf[l+1] = (x1 >> 8) & 255;
-
-        // Right channel = right + left[-p1] * t1
-        x1 = chnBuf[l+2] + (chnBuf[l+3] << 8) +
-            (chnBuf[b1] + (chnBuf[b1+1] << 8) - 32768) * t1;
-        chnBuf[l+2] = x1 & 255;
-        chnBuf[l+3] = (x1 >> 8) & 255;
-    }
+    applyDelay(chnBuf, waveSamples, instr, rowLen);
 
     // Add to mix buffer
     for(var b2 = 0; b2 < waveBytes; b2 += 2)

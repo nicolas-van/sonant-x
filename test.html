@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="bower_components/jquery/dist/jquery.js"></script>
     <script src="example-songs/4k-synth.js"></script>
-    <script src="sonant.js"></script>
+    <script src="sonantx.js"></script>
     <script>
     $(function() {
         var audioCtx = new AudioContext();
-        var songGen = new sonant.MusicGenerator(song);
+        var songGen = new sonantx.MusicGenerator(song);
         var time = new Date();
         songGen.createAudioBuffer(function(buffer) {
             var source = audioCtx.createBufferSource(); // Create Sound Source
@@ -22,7 +22,7 @@
             $("#elapsed").text("Generation took " + elapsed + " seconds");
         });
 
-        var soundGen = new sonant.SoundGenerator(song.songData[0]);
+        var soundGen = new sonantx.SoundGenerator(song.songData[0]);
         soundGen.createAudioBuffer(142, 3, function(buffer) {
             $("button").click(function() {
                 var source = audioCtx.createBufferSource(); // Create Sound Source
@@ -49,7 +49,7 @@
             var downTime = now - lastCheck;
             if (downTime > biggestDownTime) {
                 biggestDownTime = downTime;
-                $("#downtime").text("Downtime: " + (downTime / 1000) + " seconds");
+                $("#downtime").text("Max downtime: " + (downTime / 1000) + " seconds");
             }
             lastCheck = now;
 
@@ -92,6 +92,6 @@
 <body>
     <p><span id="elapsed">Generating...</span></p>
     <p><span id="downtime"></span></p>
-    <p><button>Audio</button></p>
+    <p><button>Ting</button></p>
     <canvas id="canvas" width="300" height="300"></canvas>
 </body>

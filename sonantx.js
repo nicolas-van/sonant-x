@@ -142,7 +142,7 @@ sonantx.AudioGenerator = function(mixBuf) {
     this.mixBuf = mixBuf;
     this.waveSize = mixBuf.length / WAVE_CHAN / 2;
 };
-sonantx.AudioGenerator.prototype.getAudio = function() {
+sonantx.AudioGenerator.prototype.getWave = function() {
     var mixBuf = this.mixBuf;
     var waveSize = this.waveSize;
     // Local variables
@@ -174,6 +174,10 @@ sonantx.AudioGenerator.prototype.getAudio = function() {
         }
         wave += x;
     }
+    return wave;
+};
+sonantx.AudioGenerator.prototype.getAudio = function() {
+    var wave = this.getWave();
     var a = new Audio("data:audio/wav;base64," + btoa(wave));
     a.preload = "none";
     a.load();

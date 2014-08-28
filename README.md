@@ -3,7 +3,8 @@ Sonant-X
 
 A very small JavaScript synthesizer library, suitable for small JavaScript demos or video games.
 
-Sonant-X was created with video games' sound effects and music in mind.
+Sonant-X was created with video games' sound effects and music in mind, as well as size-restrained demos. It supports
+both the HTML5 Audio object and the Web Audio API.
 
 Songs for Sonant-X can be composed using [Sonant-X Live](https://github.com/nicolas-van/sonant-x-live).
 

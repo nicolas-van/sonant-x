@@ -12,24 +12,22 @@
         var audioCtx = new AudioContext();
         var songGen = new sonantx.MusicGenerator(song);
         var time = new Date();
-        songGen.createAudioBuffer(function(buffer) {
-            var source = audioCtx.createBufferSource(); // Create Sound Source
-            source.buffer = buffer; // Add Buffered Data to Object
-            source.connect(audioCtx.destination); // Connect Sound Source to Output
-            source.start();
+        var buffer = songGen.createAudioBuffer();
+        var source = audioCtx.createBufferSource(); // Create Sound Source
+        source.buffer = buffer; // Add Buffered Data to Object
+        source.connect(audioCtx.destination); // Connect Sound Source to Output
+        source.start();
 
-            var elapsed = (new Date() - time) / 1000;
-            $("#elapsed").text("Generation took " + elapsed + " seconds");
-        });
+        var elapsed = (new Date() - time) / 1000;
+        $("#elapsed").text("Generation took " + elapsed + " seconds");
 
         var soundGen = new sonantx.SoundGenerator(song.songData[0]);
-        soundGen.createAudioBuffer(142, function(buffer) {
-            $("button").click(function() {
-                var source = audioCtx.createBufferSource(); // Create Sound Source
-                source.buffer = buffer; // Add Buffered Data to Object
-                source.connect(audioCtx.destination); // Connect Sound Source to Output
-                source.start();
-            });
+        var sbuffer = soundGen.createAudioBuffer(142);
+        $("button").click(function() {
+            var source = audioCtx.createBufferSource(); // Create Sound Source
+            source.buffer = sbuffer; // Add Buffered Data to Object
+            source.connect(audioCtx.destination); // Connect Sound Source to Output
+            source.start();
         });
 
         var sun = new Image();

@@ -154,7 +154,7 @@ sonantx.SoundGenerator = function(instr, rowLen) {
     this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
     this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
 };
-sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
+sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf) {
     var c1 = 0;
     var c2 = 0;
 
@@ -167,91 +167,115 @@ sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
     var low = 0;
     var band = 0;
 
-    var lchan = chnBuf.getChannelData(0);
-    var rchan = chnBuf.getChannelData(1);
+    var source = audioCtx.createBufferSource();
+    source.buffer = chnBuf;
+    var scriptNode = audioCtx.createScriptProcessor(1024 * 8, 2, 2);
+    var j = 0;
+    scriptNode.onaudioprocess = function(audioProcessingEvent) {
 
-    for (var j = this.attack + this.sustain + this.release - 1; j >= 0; --j)
-    {
-        var k = j + currentpos;
+        var inputData = audioProcessingEvent.inputBuffer;
+        var outputData = audioProcessingEvent.outputBuffer;
 
-        // LFO
-        var lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5;
+        var ilchan = inputData.getChannelData(0);
+        var irchan = inputData.getChannelData(1)
 
-        // Envelope
-        var e = 1;
-        if(j < this.attack)
-            e = j / this.attack;
-        else if(j >= this.attack + this.sustain)
-            e -= (j - this.attack - this.sustain) / this.release;
+        var lchan = outputData.getChannelData(0);
+        var rchan = outputData.getChannelData(1);
 
-        // Oscillator 1
-        var t = o1t;
-        if(this.instr.lfo_osc1_freq) t += lfor;
-        if(this.instr.osc1_xenv) t *= e * e;
-        c1 += t;
-        var rsample = this.osc1(c1) * this.instr.osc1_vol;
+        var c = 0;
 
-        // Oscillator 2
-        t = o2t;
-        if(this.instr.osc2_xenv) t *= e * e;
-        c2 += t;
-        rsample += this.osc2(c2) * this.instr.osc2_vol;
-
-        // Noise oscillator
-        if(this.instr.noise_fader) rsample += (2*Math.random()-1) * this.instr.noise_fader * e;
-
-        rsample *= e / 255;
-
-        // State variable filter
-        var f = this.instr.fx_freq;
-        if(this.instr.lfo_fx_freq) f *= lfor;
-        f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
-        low += f * band;
-        var high = q * (rsample - band) - low;
-        band += f * high;
-        switch(this.instr.fx_filter)
+        while (j < this.attack + this.sustain + this.release && c < lchan.length)
         {
-            case 1: // Hipass
-                rsample = high;
-                break;
-            case 2: // Lopass
-                rsample = low;
-                break;
-            case 3: // Bandpass
-                rsample = band;
-                break;
-            case 4: // Notch
-                rsample = low + high;
-                break;
-            default:
+            // LFO
+            var lfor = this.osc_lfo(j * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5;
+
+            // Envelope
+            var e = 1;
+            if(j < this.attack)
+                e = j / this.attack;
+            else if(j >= this.attack + this.sustain)
+                e -= (j - this.attack - this.sustain) / this.release;
+
+            // Oscillator 1
+            var t = o1t;
+            if(this.instr.lfo_osc1_freq) t += lfor;
+            if(this.instr.osc1_xenv) t *= e * e;
+            c1 += t;
+            var rsample = this.osc1(c1) * this.instr.osc1_vol;
+
+            // Oscillator 2
+            t = o2t;
+            if(this.instr.osc2_xenv) t *= e * e;
+            c2 += t;
+            rsample += this.osc2(c2) * this.instr.osc2_vol;
+
+            // Noise oscillator
+            if(this.instr.noise_fader) rsample += (2*Math.random()-1) * this.instr.noise_fader * e;
+
+            rsample *= e / 255;
+
+            // State variable filter
+            var f = this.instr.fx_freq;
+            if(this.instr.lfo_fx_freq) f *= lfor;
+            f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
+            low += f * band;
+            var high = q * (rsample - band) - low;
+            band += f * high;
+            switch(this.instr.fx_filter)
+            {
+                case 1: // Hipass
+                    rsample = high;
+                    break;
+                case 2: // Lopass
+                    rsample = low;
+                    break;
+                case 3: // Bandpass
+                    rsample = band;
+                    break;
+                case 4: // Notch
+                    rsample = low + high;
+                    break;
+                default:
+            }
+
+            // Panning & master volume
+            t = osc_sin(j * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
+            rsample *= 39 * this.instr.env_master;
+
+            var x = 32768 + rsample * (1 - t);
+            var x1 = x & 255;
+            var x2 = (x >> 8) & 255;
+            var y = 4 * (x1 + (x2 << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            lchan[c] = ilchan[c] + y / 32768;
+
+            x = 32768 + rsample * (t);
+            x1 = x & 255;
+            x2 = (x >> 8) & 255;
+            y = 4 * (x1 + (x2 << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            rchan[c] = irchan[c] + y / 32768;
+
+            j++;
+            c++;
         }
+        while (c < lchan.length) {
+            lchan[c] = ilchan[c];
+            rchan[c] = irchan[c];
+            c++;
+        }
+    }.bind(this);
 
-        // Panning & master volume
-        t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
-        rsample *= 39 * this.instr.env_master;
-
-        var x = 32768 + rsample * (1 - t);
-        var x1 = x & 255;
-        var x2 = (x >> 8) & 255;
-        var y = 4 * (x1 + (x2 << 8) - 32768);
-        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-        lchan[k] = y / 32768;
-
-        x = 32768 + rsample * (t);
-        x1 = x & 255;
-        x2 = (x >> 8) & 255;
-        y = 4 * (x1 + (x2 << 8) - 32768);
-        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-        rchan[k] = y / 32768;
-    }
+    source.connect(scriptNode);
+    return [source, scriptNode];
 };
-sonantx.SoundGenerator.prototype.createAudioBuffer = function(n) {
+sonantx.SoundGenerator.prototype.createAudioChain = function(n) {
     var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
     var self = this;
     var buffer = audioCtx.createBuffer(WAVE_CHAN, bufferSize, WAVE_SPS);;
-    self.genSound(n, buffer, 0);
+    var res = self.genSound(n, buffer);
     //applyDelay(buffer, bufferSize, self.instr, self.rowLen);
-    return buffer;
+    return res;
 };
 
 sonantx.MusicGenerator = function(song) {

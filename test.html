@@ -21,13 +21,11 @@
         var elapsed = (new Date() - time) / 1000;
         $("#elapsed").text("Generation took " + elapsed + " seconds");
 
-        var soundGen = new sonantx.SoundGenerator(song.songData[0]);
-        var sbuffer = soundGen.createAudioBuffer(142);
         $("button").click(function() {
-            var source = audioCtx.createBufferSource(); // Create Sound Source
-            source.buffer = sbuffer; // Add Buffered Data to Object
-            source.connect(audioCtx.destination); // Connect Sound Source to Output
-            source.start();
+            var soundGen = new sonantx.SoundGenerator(song.songData[0]);
+            var chain = soundGen.createAudioChain(142);
+            chain[1].connect(audioCtx.destination);
+            chain[0].start();
         });
 
         var sun = new Image();

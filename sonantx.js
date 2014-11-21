@@ -154,7 +154,7 @@ sonantx.SoundGenerator = function(instr, rowLen) {
     this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
     this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
 };
-sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf) {
+sonantx.SoundGenerator.prototype.genSound = function(n) {
     var c1 = 0;
     var c2 = 0;
 
@@ -167,9 +167,16 @@ sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf) {
     var low = 0;
     var band = 0;
 
+    /*var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
+    var chnBuf = audioCtx.createBuffer(WAVE_CHAN, bufferSize, WAVE_SPS);;
     var source = audioCtx.createBufferSource();
-    source.buffer = chnBuf;
-    var scriptNode = audioCtx.createScriptProcessor(1024 * 8, 2, 2);
+    source.buffer = chnBuf;*/
+    var source = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain);
+
+    var scriptNode = audioCtx.createScriptProcessor(1024, 2, 2);
     var j = 0;
     scriptNode.onaudioprocess = function(audioProcessingEvent) {
 
@@ -266,14 +273,11 @@ sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf) {
         }
     }.bind(this);
 
-    source.connect(scriptNode);
+    gain.connect(scriptNode);
     return [source, scriptNode];
 };
 sonantx.SoundGenerator.prototype.createAudioChain = function(n) {
-    var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
-    var self = this;
-    var buffer = audioCtx.createBuffer(WAVE_CHAN, bufferSize, WAVE_SPS);;
-    var res = self.genSound(n, buffer);
+    var res = this.genSound(n);
     //applyDelay(buffer, bufferSize, self.instr, self.rowLen);
     return res;
 };

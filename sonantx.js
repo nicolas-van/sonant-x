@@ -116,7 +116,7 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen) {
     }
 }
 
-function SoundGenerator(instr, n, rowLen) {
+function SoundWriter(instr, n, rowLen) {
     var osc_lfo = oscillators[instr.lfo_waveform];
     var osc1 = oscillators[instr.osc1_waveform];
     var osc2 = oscillators[instr.osc2_waveform];
@@ -137,7 +137,7 @@ function SoundGenerator(instr, n, rowLen) {
 
     var j = 0;
 
-    this.write = function(ilchan, irchan, lchan, rchan, from) {
+    this.write = function(lchan, rchan, from) {
 
         var c = from;
 
@@ -204,14 +204,14 @@ function SoundGenerator(instr, n, rowLen) {
             var x2 = (x >> 8) & 255;
             var y = 4 * (x1 + (x2 << 8) - 32768);
             y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            lchan[c] = ilchan[c] + y / 32768;
+            lchan[c] = lchan[c] + y / 32768;
 
             x = 32768 + rsample * (t);
             x1 = x & 255;
             x2 = (x >> 8) & 255;
             y = 4 * (x1 + (x2 << 8) - 32768);
             y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            rchan[c] = irchan[c] + y / 32768;
+            rchan[c] = rchan[c] + y / 32768;
 
             j++;
             c++;
@@ -236,7 +236,7 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     source.connect(nullGain);
 
     var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
-    var sg = new SoundGenerator(instr, n, rowLen);
+    var sw = new SoundWriter(instr, n, rowLen);
     scriptNode.onaudioprocess = function(audioProcessingEvent) {
         var inputData = audioProcessingEvent.inputBuffer;
         var outputData = audioProcessingEvent.outputBuffer;
@@ -245,13 +245,11 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
         var lchan = outputData.getChannelData(0);
         var rchan = outputData.getChannelData(1);
 
-        var c = sg.write(ilchan, irchan, lchan, rchan, 0);
+        lchan.set(ilchan);
+        rchan.set(irchan);
 
-        while (c < inputData.length) {
-            lchan[c] = ilchan[c];
-            rchan[c] = irchan[c];
-            c++;
-        }
+        sw.write(lchan, rchan, 0);
+
 
     }.bind(this);
 
@@ -289,7 +287,6 @@ sonantx.SoundGenerator.prototype.stop = function(when) {
         return;
     var remaining = this.duration - ((new Date().getTime() - this.started) / 1000);
     when = Math.max(Math.min(when, remaining), 0);
-    console.log(when);
     this.chain[0].stop(when);
 };
 sonantx.SoundGenerator.prototype.connect = function() {

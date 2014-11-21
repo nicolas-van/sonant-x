@@ -141,7 +141,7 @@ sonantx.AudioGenerator.prototype.getAudioBuffer = function() {
     return buffer;
 };
 
-sonantx.SoundGenerator = function(instr, rowLen) {
+sonantx.SoundGenerator = function(instr, n, rowLen) {
     this.instr = instr;
     this.rowLen = rowLen || 5605;
 
@@ -153,8 +153,7 @@ sonantx.SoundGenerator = function(instr, rowLen) {
     this.release = instr.env_release;
     this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
     this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
-};
-sonantx.SoundGenerator.prototype.genSound = function(n) {
+
     var c1 = 0;
     var c2 = 0;
 
@@ -167,10 +166,6 @@ sonantx.SoundGenerator.prototype.genSound = function(n) {
     var low = 0;
     var band = 0;
 
-    /*var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
-    var chnBuf = audioCtx.createBuffer(WAVE_CHAN, bufferSize, WAVE_SPS);;
-    var source = audioCtx.createBufferSource();
-    source.buffer = chnBuf;*/
     var source = audioCtx.createOscillator();
     var gain = audioCtx.createGain();
     gain.gain.value = 0;
@@ -274,12 +269,24 @@ sonantx.SoundGenerator.prototype.genSound = function(n) {
     }.bind(this);
 
     gain.connect(scriptNode);
-    return [source, scriptNode];
+    this.chain = [source, gain, scriptNode];
 };
-sonantx.SoundGenerator.prototype.createAudioChain = function(n) {
-    var res = this.genSound(n);
-    //applyDelay(buffer, bufferSize, self.instr, self.rowLen);
-    return res;
+sonantx.SoundGenerator.prototype.start = function(when) {
+    var when = when || 0;
+
+    var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
+    var duration = bufferSize / WAVE_SPS;
+
+    this.chain[0].start(when);
+    this.chain[0].stop(when + duration);
+};
+sonantx.SoundGenerator.prototype.connect = function() {
+    var last = this.chain[this.chain.length - 1];
+    last.connect.apply(last, arguments);
+};
+sonantx.SoundGenerator.prototype.disconnect = function() {
+    var last = this.chain[this.chain.length - 1];
+    last.disconnect.apply(last, arguments);
 };
 
 sonantx.MusicGenerator = function(song) {

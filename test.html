@@ -22,10 +22,9 @@
         $("#elapsed").text("Generation took " + elapsed + " seconds");
 
         $("button").click(function() {
-            var soundGen = new sonantx.SoundGenerator(song.songData[0]);
-            var chain = soundGen.createAudioChain(142);
-            chain[chain.length - 1].connect(audioCtx.destination);
-            chain[0].start();
+            var soundGen = new sonantx.SoundGenerator(song.songData[0], 142);
+            soundGen.connect(audioCtx.destination);
+            soundGen.start();
         });
 
         var sun = new Image();

@@ -24,7 +24,7 @@
         var soundGen;
 
         $("button.btna").click(function() {
-            soundGen = new sonantx.SoundGenerator(song.songData[0], 142);
+            soundGen = new sonantx.TrackNode(song.songData[0]);
             soundGen.connect(audioCtx.destination);
             soundGen.start();
         });

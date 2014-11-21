@@ -159,12 +159,11 @@ sonantx.AudioGenerator.prototype.getAudioBuffer = function() {
     var mixBuf = this.mixBuf;
     var waveSize = this.waveSize;
 
-    var waveBytes = waveSize * WAVE_CHAN * 2;
     var buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS); // Create Mono Source Buffer from Raw Binary
     var lchan = buffer.getChannelData(0);
     var rchan = buffer.getChannelData(1);
     var b = 0;
-    while (b < (waveBytes / 2)) {
+    while (b < waveSize) {
         var y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768);
         y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
         lchan[b] = y / 32768;

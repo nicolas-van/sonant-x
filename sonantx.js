@@ -116,35 +116,7 @@ function applyDelay(chnBuf, waveSamples, instr, rowLen) {
     }
 }
 
-sonantx.AudioGenerator = function(mixBuf) {
-    this.mixBuf = mixBuf;
-    this.waveSize = mixBuf.length / WAVE_CHAN / 2;
-};
-sonantx.AudioGenerator.prototype.getAudioBuffer = function() {
-    var mixBuf = this.mixBuf;
-    var waveSize = this.waveSize;
-
-    var buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS); // Create Mono Source Buffer from Raw Binary
-
-    var lchan = buffer.getChannelData(0);
-    var rchan = buffer.getChannelData(1);
-    var b = 0;
-    while (b < waveSize) {
-        var y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768);
-        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-        lchan[b] = y / 32768;
-        y = 4 * (mixBuf[(b * 4) + 2] + (mixBuf[(b * 4) + 3] << 8) - 32768);
-        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-        rchan[b] = y / 32768;
-        b += 1;
-    }
-    return buffer;
-};
-
-sonantx.SoundGenerator = function(instr, n, rowLen) {
-    this.instr = instr;
-    rowLen = rowLen || 5605;
-
+function SoundGenerator(instr, n, rowLen) {
     var osc_lfo = oscillators[instr.lfo_waveform];
     var osc1 = oscillators[instr.osc1_waveform];
     var osc2 = oscillators[instr.osc2_waveform];
@@ -163,25 +135,11 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     var low = 0;
     var band = 0;
 
-    var source = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    gain.gain.value = 0;
-    source.connect(gain);
-
-    var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
     var j = 0;
-    scriptNode.onaudioprocess = function(audioProcessingEvent) {
 
-        var inputData = audioProcessingEvent.inputBuffer;
-        var outputData = audioProcessingEvent.outputBuffer;
+    this.write = function(ilchan, irchan, lchan, rchan, from) {
 
-        var ilchan = inputData.getChannelData(0);
-        var irchan = inputData.getChannelData(1)
-
-        var lchan = outputData.getChannelData(0);
-        var rchan = outputData.getChannelData(1);
-
-        var c = 0;
+        var c = from;
 
         while (j < instr.env_attack + instr.env_sustain + instr.env_release && c < lchan.length)
         {
@@ -258,14 +216,46 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
             j++;
             c++;
         }
-        while (c < lchan.length) {
+
+        return c;
+    };
+};
+
+sonantx.SoundGenerator = function(instr, n, rowLen) {
+    rowLen = rowLen || 5605;
+    
+    this.instr = instr;
+    this.rowLen = rowLen;
+    this.started = null;
+    var bufferSize = (this.instr.env_attack + this.instr.env_sustain + this.instr.env_release) + (32 * this.rowLen);
+    this.duration = bufferSize / WAVE_SPS;
+
+    var source = audioCtx.createOscillator();
+    var nullGain = audioCtx.createGain();
+    nullGain.gain.value = 0;
+    source.connect(nullGain);
+
+    var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
+    var sg = new SoundGenerator(instr, n, rowLen);
+    scriptNode.onaudioprocess = function(audioProcessingEvent) {
+        var inputData = audioProcessingEvent.inputBuffer;
+        var outputData = audioProcessingEvent.outputBuffer;
+        var ilchan = inputData.getChannelData(0);
+        var irchan = inputData.getChannelData(1);
+        var lchan = outputData.getChannelData(0);
+        var rchan = outputData.getChannelData(1);
+
+        var c = sg.write(ilchan, irchan, lchan, rchan, 0);
+
+        while (c < inputData.length) {
             lchan[c] = ilchan[c];
             rchan[c] = irchan[c];
             c++;
         }
+
     }.bind(this);
 
-    gain.connect(scriptNode);
+    nullGain.connect(scriptNode);
 
     var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2;
     var delayAmount = instr.fx_delay_amt / 255;
@@ -284,16 +274,23 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     scriptNode.connect(mixer);
     delay.connect(mixer);
 
-    this.chain = [source, gain, scriptNode, delayGain, delay, mixer];
+    this.chain = [source, nullGain, scriptNode, delayGain, delay, mixer];
 };
 sonantx.SoundGenerator.prototype.start = function(when) {
     var when = when || 0;
 
-    var bufferSize = (this.instr.env_attack + this.instr.env_sustain + this.instr.env_release) + (32 * this.rowLen);
-    var duration = bufferSize / WAVE_SPS;
-
     this.chain[0].start(when);
-    this.chain[0].stop(when + duration);
+    this.started = new Date().getTime() + (when * 1000);
+    this.chain[0].stop(when + this.duration);
+};
+sonantx.SoundGenerator.prototype.stop = function(when) {
+    var when = when || 0;
+    if (this.started === null)
+        return;
+    var remaining = this.duration - ((new Date().getTime() - this.started) / 1000);
+    when = Math.max(Math.min(when, remaining), 0);
+    console.log(when);
+    this.chain[0].stop(when);
 };
 sonantx.SoundGenerator.prototype.connect = function() {
     var last = this.chain[this.chain.length - 1];

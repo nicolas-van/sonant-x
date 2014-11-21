@@ -21,10 +21,17 @@
         var elapsed = (new Date() - time) / 1000;
         $("#elapsed").text("Generation took " + elapsed + " seconds");
 
-        $("button").click(function() {
-            var soundGen = new sonantx.SoundGenerator(song.songData[0], 142);
+        var soundGen;
+
+        $("button.btna").click(function() {
+            soundGen = new sonantx.SoundGenerator(song.songData[0], 142);
             soundGen.connect(audioCtx.destination);
             soundGen.start();
+        });
+        $("button.btnb").click(function() {
+            if (! soundGen)
+                return;
+            soundGen.stop();
         });
 
         var sun = new Image();
@@ -87,6 +94,7 @@
 <body>
     <p><span id="elapsed">Generating...</span></p>
     <p><span id="downtime"></span></p>
-    <p><button>Ting</button></p>
+    <p><button class="btna">Ting</button></p>
+    <p><button class="btnb">Stop</button></p>
     <canvas id="canvas" width="300" height="300"></canvas>
 </body>

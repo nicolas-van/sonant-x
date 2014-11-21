@@ -148,9 +148,6 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     var osc_lfo = oscillators[instr.lfo_waveform];
     var osc1 = oscillators[instr.osc1_waveform];
     var osc2 = oscillators[instr.osc2_waveform];
-    var attack = instr.env_attack;
-    var sustain = instr.env_sustain;
-    var release = instr.env_release;
     var panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen;
     var lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
 
@@ -171,7 +168,7 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     gain.gain.value = 0;
     source.connect(gain);
 
-    var scriptNode = audioCtx.createScriptProcessor(1024, 2, 2);
+    var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
     var j = 0;
     scriptNode.onaudioprocess = function(audioProcessingEvent) {
 
@@ -186,17 +183,17 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
 
         var c = 0;
 
-        while (j < attack + sustain + release && c < lchan.length)
+        while (j < instr.env_attack + instr.env_sustain + instr.env_release && c < lchan.length)
         {
             // LFO
             var lfor = osc_lfo(j * lfoFreq) * instr.lfo_amt / 512 + 0.5;
 
             // Envelope
             var e = 1;
-            if(j < attack)
-                e = j / attack;
-            else if(j >= attack + sustain)
-                e -= (j - attack - sustain) / release;
+            if(j < instr.env_attack)
+                e = j / instr.env_attack;
+            else if(j >= instr.env_attack + instr.env_sustain)
+                e -= (j - instr.env_attack - instr.env_sustain) / instr.env_release;
 
             // Oscillator 1
             var t = o1t;
@@ -270,7 +267,7 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
 
     gain.connect(scriptNode);
 
-    var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS;
+    var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2;
     var delayAmount = instr.fx_delay_amt / 255;
 
     var delayGain = audioCtx.createGain();
@@ -278,7 +275,7 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
     scriptNode.connect(delayGain);
 
     var delay = audioCtx.createDelay();
-    delay.delayTime.value = delayAmount;
+    delay.delayTime.value = delayTime;
     delayGain.connect(delay);
     delay.connect(delayGain);
 
@@ -292,7 +289,7 @@ sonantx.SoundGenerator = function(instr, n, rowLen) {
 sonantx.SoundGenerator.prototype.start = function(when) {
     var when = when || 0;
 
-    var bufferSize = (this.instr.attack + this.instr.sustain + this.instr.release) + (32 * this.rowLen);
+    var bufferSize = (this.instr.env_attack + this.instr.env_sustain + this.instr.env_release) + (32 * this.rowLen);
     var duration = bufferSize / WAVE_SPS;
 
     this.chain[0].start(when);

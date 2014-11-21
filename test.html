@@ -9,14 +9,14 @@
     <script src="sonantx.js"></script>
     <script>
     $(function() {
-        var audioCtx = new AudioContext();
+        var audioCtx = sonantx.audioCtx;
         var songGen = new sonantx.MusicGenerator(song);
         var time = new Date();
-        var buffer = songGen.createAudioBuffer();
+        /*var buffer = songGen.createAudioBuffer();
         var source = audioCtx.createBufferSource(); // Create Sound Source
         source.buffer = buffer; // Add Buffered Data to Object
         source.connect(audioCtx.destination); // Connect Sound Source to Output
-        source.start();
+        source.start();*/
 
         var elapsed = (new Date() - time) / 1000;
         $("#elapsed").text("Generation took " + elapsed + " seconds");

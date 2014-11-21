@@ -37,7 +37,8 @@ var WAVE_SPS = 44100;                    // Samples per second
 var WAVE_CHAN = 2;                       // Channels
 var MAX_TIME = 33; // maximum time, in millis, that the generator can use consecutively
 
-var audioCtx = null;
+var audioCtx = new AudioContext();
+sonantx.audioCtx = audioCtx;
 
 // Oscillators
 function osc_sin(value)
@@ -119,47 +120,12 @@ sonantx.AudioGenerator = function(mixBuf) {
     this.mixBuf = mixBuf;
     this.waveSize = mixBuf.length / WAVE_CHAN / 2;
 };
-sonantx.AudioGenerator.prototype.getWave = function() {
-    var mixBuf = this.mixBuf;
-    var waveSize = this.waveSize;
-    // Local variables
-    var b, k, x, wave, l1, l2, s, y;
-
-    // Turn critical object properties into local variables (performance)
-    var waveBytes = waveSize * WAVE_CHAN * 2;
-
-    // Convert to a WAVE file (in a binary string)
-    l1 = waveBytes - 8;
-    l2 = l1 - 36;
-    wave = String.fromCharCode(82,73,70,70,
-                               l1 & 255,(l1 >> 8) & 255,(l1 >> 16) & 255,(l1 >> 24) & 255,
-                               87,65,86,69,102,109,116,32,16,0,0,0,1,0,2,0,
-                               68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
-                               l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
-    b = 0;
-    while(b < waveBytes)
-    {
-        // This is a GC & speed trick: don't add one char at a time - batch up
-        // larger partial strings
-        x = "";
-        for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
-        {
-            // Note: We amplify and clamp here
-            y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
-            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            x += String.fromCharCode(y & 255, (y >> 8) & 255);
-        }
-        wave += x;
-    }
-    return wave;
-};
 sonantx.AudioGenerator.prototype.getAudioBuffer = function() {
-    if (audioCtx === null)
-        audioCtx = new AudioContext();
     var mixBuf = this.mixBuf;
     var waveSize = this.waveSize;
 
     var buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS); // Create Mono Source Buffer from Raw Binary
+
     var lchan = buffer.getChannelData(0);
     var rchan = buffer.getChannelData(1);
     var b = 0;
@@ -189,7 +155,6 @@ sonantx.SoundGenerator = function(instr, rowLen) {
     this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
 };
 sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
-    var marker = new Date();
     var c1 = 0;
     var c2 = 0;
 
@@ -201,6 +166,10 @@ sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
     var q = this.instr.fx_resonance / 255;
     var low = 0;
     var band = 0;
+
+    var lchan = chnBuf.getChannelData(0);
+    var rchan = chnBuf.getChannelData(1);
+
     for (var j = this.attack + this.sustain + this.release - 1; j >= 0; --j)
     {
         var k = j + currentpos;
@@ -261,28 +230,28 @@ sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
         t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
         rsample *= 39 * this.instr.env_master;
 
-        // Add to 16-bit channel buffer
-        k = k * 4;
-        if (k + 3 < chnBuf.length) {
-            var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
-            chnBuf[k] = x & 255;
-            chnBuf[k+1] = (x >> 8) & 255;
-            x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
-            chnBuf[k+2] = x & 255;
-            chnBuf[k+3] = (x >> 8) & 255;
-        }
+        var x = 32768 + rsample * (1 - t);
+        var x1 = x & 255;
+        var x2 = (x >> 8) & 255;
+        var y = 4 * (x1 + (x2 << 8) - 32768);
+        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+        lchan[k] = y / 32768;
+
+        x = 32768 + rsample * (t);
+        x1 = x & 255;
+        x2 = (x >> 8) & 255;
+        y = 4 * (x1 + (x2 << 8) - 32768);
+        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+        rchan[k] = y / 32768;
     }
 };
-sonantx.SoundGenerator.prototype.getAudioGenerator = function(n) {
-    var bufferSize = (this.attack + this.sustain + this.release - 1) + (32 * this.rowLen);
-    var self = this;
-    var buffer = genBuffer(bufferSize);
-    self.genSound(n, buffer, 0);
-    applyDelay(buffer, bufferSize, self.instr, self.rowLen);
-    return new sonantx.AudioGenerator(buffer);
-};
 sonantx.SoundGenerator.prototype.createAudioBuffer = function(n) {
-    return this.getAudioGenerator(n).getAudioBuffer();
+    var bufferSize = (this.attack + this.sustain + this.release) + (32 * this.rowLen);
+    var self = this;
+    var buffer = audioCtx.createBuffer(WAVE_CHAN, bufferSize, WAVE_SPS);;
+    self.genSound(n, buffer, 0);
+    //applyDelay(buffer, bufferSize, self.instr, self.rowLen);
+    return buffer;
 };
 
 sonantx.MusicGenerator = function(song) {

@@ -214,7 +214,7 @@ sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
         var nextNoteSample = nextNote * rowLen;
         while (nextNoteSample >= currentSample &&
             nextNoteSample < currentSample + inputData.length) {
-            var pattern = instr.p[Math.round(nextNote / 32) % (this.endPattern + 1)] || 0;
+            var pattern = instr.p[Math.floor(nextNote / 32) % (this.endPattern + 1)] || 0;
             var note = pattern == 0 ? 0 : (instr.c[pattern - 1] || {n: []}).n[nextNote % 32] || 0;
             if (note !== 0) {
                 var sw = new SoundWriter(instr, note, rowLen);

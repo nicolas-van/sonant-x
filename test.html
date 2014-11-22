@@ -24,14 +24,11 @@
         var soundGen;
 
         $("button.btna").click(function() {
-            soundGen = new sonantx.TrackNode(song.songData[0]);
+            soundGen = new sonantx.MusicGenerator(song);
             soundGen.connect(audioCtx.destination);
             soundGen.start();
         });
         $("button.btnb").click(function() {
-            if (! soundGen)
-                return;
-            soundGen.stop();
         });
 
         var sun = new Image();

@@ -33,9 +33,7 @@ var sonantx;
 "use strict";
 sonantx = {};
 
-var WAVE_SPS = 44100;                    // Samples per second
-var WAVE_CHAN = 2;                       // Channels
-var MAX_TIME = 33; // maximum time, in millis, that the generator can use consecutively
+var WAVE_SPS = 44100;
 
 var audioCtx = new AudioContext();
 sonantx.audioCtx = audioCtx;
@@ -76,44 +74,6 @@ var oscillators =
 function getnotefreq(n)
 {
     return 0.00390625 * Math.pow(1.059463094, n - 128);
-}
-
-function genBuffer(waveSize) {
-    // Create the channel work buffer
-    var buf = new Uint8Array(waveSize * WAVE_CHAN * 2);
-    var b = buf.length - 2;
-    while(b >= 0)
-    {
-        buf[b] = 0;
-        buf[b + 1] = 128;
-        b -= 2;
-    }
-    return buf;
-}
-
-function applyDelay(chnBuf, waveSamples, instr, rowLen) {
-    var p1 = (instr.fx_delay_time * rowLen) >> 1;
-    var t1 = instr.fx_delay_amt / 255;
-
-    var n1 = 0;
-    while(n1 < waveSamples - p1)
-    {
-        var b1 = 4 * n1;
-        var l = 4 * (n1 + p1);
-
-        // Left channel = left + right[-p1] * t1
-        var x1 = chnBuf[l] + (chnBuf[l+1] << 8) +
-            (chnBuf[b1+2] + (chnBuf[b1+3] << 8) - 32768) * t1;
-        chnBuf[l] = x1 & 255;
-        chnBuf[l+1] = (x1 >> 8) & 255;
-
-        // Right channel = right + left[-p1] * t1
-        x1 = chnBuf[l+2] + (chnBuf[l+3] << 8) +
-            (chnBuf[b1] + (chnBuf[b1+1] << 8) - 32768) * t1;
-        chnBuf[l+2] = x1 & 255;
-        chnBuf[l+3] = (x1 >> 8) & 255;
-        ++n1;
-    }
 }
 
 function SoundWriter(instr, n, rowLen) {
@@ -224,19 +184,13 @@ function SoundWriter(instr, n, rowLen) {
     };
 };
 
-sonantx.TrackNode = function(instr, rowLen) {
+sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
     rowLen = rowLen || 5605;
+    endPattern = endPattern || instr.p.length - 1;
     
     this.instr = instr;
     this.rowLen = rowLen;
-    this.started = null;
-    /*var bufferSize = (this.instr.env_attack + this.instr.env_sustain + this.instr.env_release) + (32 * this.rowLen);
-    this.duration = bufferSize / WAVE_SPS;*/
-
-    var source = audioCtx.createOscillator();
-    var nullGain = audioCtx.createGain();
-    nullGain.gain.value = 0;
-    source.connect(nullGain);
+    this.endPattern = endPattern;
 
     var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
     var currentSample = 0;
@@ -260,7 +214,7 @@ sonantx.TrackNode = function(instr, rowLen) {
         var nextNoteSample = nextNote * rowLen;
         while (nextNoteSample >= currentSample &&
             nextNoteSample < currentSample + inputData.length) {
-            var pattern = instr.p[Math.round(nextNote / 32)] || 0;
+            var pattern = instr.p[Math.round(nextNote / 32) % (this.endPattern + 1)] || 0;
             var note = pattern == 0 ? 0 : (instr.c[pattern - 1] || {n: []}).n[nextNote % 32] || 0;
             if (note !== 0) {
                 var sw = new SoundWriter(instr, note, rowLen);
@@ -273,8 +227,6 @@ sonantx.TrackNode = function(instr, rowLen) {
 
         currentSample += inputData.length;
     }.bind(this);
-
-    nullGain.connect(scriptNode);
 
     var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2;
     var delayAmount = instr.fx_delay_amt / 255;
@@ -293,93 +245,36 @@ sonantx.TrackNode = function(instr, rowLen) {
     scriptNode.connect(mixer);
     delay.connect(mixer);
 
-    this.chain = [source, nullGain, scriptNode, delayGain, delay, mixer];
-};
-sonantx.TrackNode.prototype.start = function(when) {
-    var when = when || 0;
-
-    this.chain[0].start(when);
-    this.started = new Date().getTime() + (when * 1000);
-    //this.chain[0].stop(when + this.duration);
-};
-sonantx.TrackNode.prototype.stop = function(when) {
-    var when = when || 0;
-    if (this.started === null)
-        return;
-    /*var remaining = this.duration - ((new Date().getTime() - this.started) / 1000);
-    when = Math.max(Math.min(when, remaining), 0);*/
-    this.chain[0].stop(when);
-};
-sonantx.TrackNode.prototype.connect = function() {
-    var last = this.chain[this.chain.length - 1];
-    last.connect.apply(last, arguments);
-};
-sonantx.TrackNode.prototype.disconnect = function() {
-    var last = this.chain[this.chain.length - 1];
-    last.disconnect.apply(last, arguments);
+    this.chain = [scriptNode, delayGain, delay, mixer];
 };
 
 sonantx.MusicGenerator = function(song) {
     this.song = song;
-    // Wave data configuration
-    this.waveSize = WAVE_SPS * song.songLen; // Total song size (in samples)
-};
-sonantx.MusicGenerator.prototype.generateTrack = function (instr, mixBuf) {
-    var self = this;
-    var chnBuf = genBuffer(this.waveSize);
-    // Preload/precalc some properties/expressions (for improved performance)
-    var waveSamples = self.waveSize,
-        waveBytes = self.waveSize * WAVE_CHAN * 2,
-        rowLen = self.song.rowLen,
-        endPattern = self.song.endPattern,
-        soundGen = new sonantx.TrackNode(instr, rowLen);
 
-    var currentpos = 0;
-    var p = 0;
-    var row = 0;
-    while (true) {
-        if (row === 32) {
-            row = 0;
-            p += 1;
-            continue;
-        }
-        if (p === endPattern - 1) {
-            break;
-        }
-        var cp = instr.p[p];
-        if (cp) {
-            var n = instr.c[cp - 1].n[row];
-            if (n) {
-                soundGen.genSound(n, chnBuf, currentpos);
-            }
-        }
-        currentpos += rowLen;
-        row += 1;
-    }
+    var source = audioCtx.createOscillator();
+    var nullGain = audioCtx.createGain();
+    nullGain.gain.value = 0;
+    source.connect(nullGain);
 
-    applyDelay(chnBuf, waveSamples, instr, rowLen);
+    var mixer = audioCtx.createGain();
+    mixer.gain.value = 1;
 
-    var b2 = 0;
-    // Add to mix buffer
-    while(b2 < waveBytes)
-    {
-        var x2 = mixBuf[b2] + (mixBuf[b2+1] << 8) + chnBuf[b2] + (chnBuf[b2+1] << 8) - 32768;
-        mixBuf[b2] = x2 & 255;
-        mixBuf[b2+1] = (x2 >> 8) & 255;
-        b2 += 2;
-    }
+    this.tracks = [];
+
+    this.song.songData.forEach(function(el) {
+        var track = new sonantx.TrackGenerator(el, this.song.rowLen, this.song.endPattern);
+        nullGain.connect(track.chain[0]);
+        track.chain[track.chain.length - 1].connect(mixer);
+        this.tracks.push(track);
+    }.bind(this));
+
+    this.chain = [source, nullGain, mixer];
 };
-sonantx.MusicGenerator.prototype.getAudioGenerator = function() {
-    var self = this;
-    var mixBuf = genBuffer(this.waveSize);
-    var t = 0;
-    for (var t = 0; t < self.song.songData.length; t++) {
-        self.generateTrack(self.song.songData[t], mixBuf);
-    };
-    return new sonantx.AudioGenerator(mixBuf);
+sonantx.MusicGenerator.prototype.start = function(when) {
+    this.chain[0].start(when);
 };
-sonantx.MusicGenerator.prototype.createAudioBuffer = function() {
-    return this.getAudioGenerator().getAudioBuffer();
+sonantx.MusicGenerator.prototype.connect = function(target) {
+    this.chain[this.chain.length - 1].connect(target);
 };
 
 })();

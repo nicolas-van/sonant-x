@@ -33,11 +33,10 @@ var sonantx;
 "use strict";
 sonantx = {};
 
-var WAVE_SPS = 44100;                    // Samples per second
-var WAVE_CHAN = 2;                       // Channels
-var MAX_TIME = 33; // maximum time, in millis, that the generator can use consecutively
+var WAVE_SPS = 44100;
 
-var audioCtx = null;
+var audioCtx = new AudioContext();
+sonantx.audioCtx = audioCtx;
 
 // Oscillators
 function osc_sin(value)
@@ -77,356 +76,205 @@ function getnotefreq(n)
     return 0.00390625 * Math.pow(1.059463094, n - 128);
 }
 
-function genBuffer(waveSize, callBack) {
-    setTimeout(function() {
-        // Create the channel work buffer
-        var buf = new Uint8Array(waveSize * WAVE_CHAN * 2);
-        var b = buf.length - 2;
-        var iterate = function() {
-            var begin = new Date();
-            var count = 0;
-            while(b >= 0)
-            {
-                buf[b] = 0;
-                buf[b + 1] = 128;
-                b -= 2;
-                count += 1;
-                if (count % 1000 === 0 && (new Date() - begin) > MAX_TIME) {
-                    setTimeout(iterate, 0);
-                    return;
-                }
-            }
-            setTimeout(function() {callBack(buf);}, 0);
-        };
-        setTimeout(iterate, 0);
-    }, 0);
-}
+function SoundWriter(instr, n, rowLen) {
+    var osc_lfo = oscillators[instr.lfo_waveform];
+    var osc1 = oscillators[instr.osc1_waveform];
+    var osc2 = oscillators[instr.osc2_waveform];
+    var panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen;
+    var lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen;
 
-function applyDelay(chnBuf, waveSamples, instr, rowLen, callBack) {
-    var p1 = (instr.fx_delay_time * rowLen) >> 1;
-    var t1 = instr.fx_delay_amt / 255;
-
-    var n1 = 0;
-    var iterate = function() {
-        var beginning = new Date();
-        var count = 0;
-        while(n1 < waveSamples - p1)
-        {
-            var b1 = 4 * n1;
-            var l = 4 * (n1 + p1);
-
-            // Left channel = left + right[-p1] * t1
-            var x1 = chnBuf[l] + (chnBuf[l+1] << 8) +
-                (chnBuf[b1+2] + (chnBuf[b1+3] << 8) - 32768) * t1;
-            chnBuf[l] = x1 & 255;
-            chnBuf[l+1] = (x1 >> 8) & 255;
-
-            // Right channel = right + left[-p1] * t1
-            x1 = chnBuf[l+2] + (chnBuf[l+3] << 8) +
-                (chnBuf[b1] + (chnBuf[b1+1] << 8) - 32768) * t1;
-            chnBuf[l+2] = x1 & 255;
-            chnBuf[l+3] = (x1 >> 8) & 255;
-            ++n1;
-            count += 1;
-            if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
-                setTimeout(iterate, 0);
-                return;
-            }
-        }
-        setTimeout(callBack, 0);
-    };
-    setTimeout(iterate, 0);
-}
-
-sonantx.AudioGenerator = function(mixBuf) {
-    this.mixBuf = mixBuf;
-    this.waveSize = mixBuf.length / WAVE_CHAN / 2;
-};
-sonantx.AudioGenerator.prototype.getAudio = function() {
-    var mixBuf = this.mixBuf;
-    var waveSize = this.waveSize;
-    // Local variables
-    var b, k, x, wave, l1, l2, s, y;
-
-    // Turn critical object properties into local variables (performance)
-    var waveBytes = waveSize * WAVE_CHAN * 2;
-
-    // Convert to a WAVE file (in a binary string)
-    l1 = waveBytes - 8;
-    l2 = l1 - 36;
-    wave = String.fromCharCode(82,73,70,70,
-                               l1 & 255,(l1 >> 8) & 255,(l1 >> 16) & 255,(l1 >> 24) & 255,
-                               87,65,86,69,102,109,116,32,16,0,0,0,1,0,2,0,
-                               68,172,0,0,16,177,2,0,4,0,16,0,100,97,116,97,
-                               l2 & 255,(l2 >> 8) & 255,(l2 >> 16) & 255,(l2 >> 24) & 255);
-    b = 0;
-    while(b < waveBytes)
-    {
-        // This is a GC & speed trick: don't add one char at a time - batch up
-        // larger partial strings
-        x = "";
-        for (k = 0; k < 256 && b < waveBytes; ++k, b += 2)
-        {
-            // Note: We amplify and clamp here
-            y = 4 * (mixBuf[b] + (mixBuf[b+1] << 8) - 32768);
-            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            x += String.fromCharCode(y & 255, (y >> 8) & 255);
-        }
-        wave += x;
-    }
-    var a = new Audio("data:audio/wav;base64," + btoa(wave));
-    a.preload = "none";
-    a.load();
-    return a;
-};
-sonantx.AudioGenerator.prototype.getAudioBuffer = function(callBack) {
-    if (audioCtx === null)
-        audioCtx = new AudioContext();
-    var mixBuf = this.mixBuf;
-    var waveSize = this.waveSize;
-
-    var waveBytes = waveSize * WAVE_CHAN * 2;
-    var buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS); // Create Mono Source Buffer from Raw Binary
-    var lchan = buffer.getChannelData(0);
-    var rchan = buffer.getChannelData(1);
-    var b = 0;
-    var iterate = function() {
-        var beginning = new Date();
-        var count = 0;
-        while (b < (waveBytes / 2)) {
-            var y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768);
-            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            lchan[b] = y / 32768;
-            y = 4 * (mixBuf[(b * 4) + 2] + (mixBuf[(b * 4) + 3] << 8) - 32768);
-            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
-            rchan[b] = y / 32768;
-            b += 1;
-            count += 1;
-            if (count % 1000 === 0 && new Date() - beginning > MAX_TIME) {
-                setTimeout(iterate, 0);
-                return;
-            }
-        }
-        setTimeout(function() {callBack(buffer);}, 0);
-    };
-    setTimeout(iterate, 0);
-};
-
-sonantx.SoundGenerator = function(instr, rowLen) {
-    this.instr = instr;
-    this.rowLen = rowLen || 5605;
-
-    this.osc_lfo = oscillators[instr.lfo_waveform];
-    this.osc1 = oscillators[instr.osc1_waveform];
-    this.osc2 = oscillators[instr.osc2_waveform];
-    this.attack = instr.env_attack;
-    this.sustain = instr.env_sustain;
-    this.release = instr.env_release;
-    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen;
-    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen;
-};
-sonantx.SoundGenerator.prototype.genSound = function(n, chnBuf, currentpos) {
-    var marker = new Date();
     var c1 = 0;
     var c2 = 0;
 
     // Precalculate frequencues
-    var o1t = getnotefreq(n + (this.instr.osc1_oct - 8) * 12 + this.instr.osc1_det) * (1 + 0.0008 * this.instr.osc1_detune);
-    var o2t = getnotefreq(n + (this.instr.osc2_oct - 8) * 12 + this.instr.osc2_det) * (1 + 0.0008 * this.instr.osc2_detune);
+    var o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune);
+    var o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune);
 
     // State variable init
-    var q = this.instr.fx_resonance / 255;
+    var q = instr.fx_resonance / 255;
     var low = 0;
     var band = 0;
-    for (var j = this.attack + this.sustain + this.release - 1; j >= 0; --j)
-    {
-        var k = j + currentpos;
 
-        // LFO
-        var lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5;
+    var j = 0;
 
-        // Envelope
-        var e = 1;
-        if(j < this.attack)
-            e = j / this.attack;
-        else if(j >= this.attack + this.sustain)
-            e -= (j - this.attack - this.sustain) / this.release;
+    this.write = function(lchan, rchan, from) {
 
-        // Oscillator 1
-        var t = o1t;
-        if(this.instr.lfo_osc1_freq) t += lfor;
-        if(this.instr.osc1_xenv) t *= e * e;
-        c1 += t;
-        var rsample = this.osc1(c1) * this.instr.osc1_vol;
+        var c = from;
 
-        // Oscillator 2
-        t = o2t;
-        if(this.instr.osc2_xenv) t *= e * e;
-        c2 += t;
-        rsample += this.osc2(c2) * this.instr.osc2_vol;
-
-        // Noise oscillator
-        if(this.instr.noise_fader) rsample += (2*Math.random()-1) * this.instr.noise_fader * e;
-
-        rsample *= e / 255;
-
-        // State variable filter
-        var f = this.instr.fx_freq;
-        if(this.instr.lfo_fx_freq) f *= lfor;
-        f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
-        low += f * band;
-        var high = q * (rsample - band) - low;
-        band += f * high;
-        switch(this.instr.fx_filter)
+        while (j < instr.env_attack + instr.env_sustain + instr.env_release && c < lchan.length)
         {
-            case 1: // Hipass
-                rsample = high;
-                break;
-            case 2: // Lopass
-                rsample = low;
-                break;
-            case 3: // Bandpass
-                rsample = band;
-                break;
-            case 4: // Notch
-                rsample = low + high;
-                break;
-            default:
+            // LFO
+            var lfor = osc_lfo(j * lfoFreq) * instr.lfo_amt / 512 + 0.5;
+
+            // Envelope
+            var e = 1;
+            if(j < instr.env_attack)
+                e = j / instr.env_attack;
+            else if(j >= instr.env_attack + instr.env_sustain)
+                e -= (j - instr.env_attack - instr.env_sustain) / instr.env_release;
+
+            // Oscillator 1
+            var t = o1t;
+            if(instr.lfo_osc1_freq) t += lfor;
+            if(instr.osc1_xenv) t *= e * e;
+            c1 += t;
+            var rsample = osc1(c1) * instr.osc1_vol;
+
+            // Oscillator 2
+            t = o2t;
+            if(instr.osc2_xenv) t *= e * e;
+            c2 += t;
+            rsample += osc2(c2) * instr.osc2_vol;
+
+            // Noise oscillator
+            if(instr.noise_fader) rsample += (2*Math.random()-1) * instr.noise_fader * e;
+
+            rsample *= e / 255;
+
+            // State variable filter
+            var f = instr.fx_freq;
+            if(instr.lfo_fx_freq) f *= lfor;
+            f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS);
+            low += f * band;
+            var high = q * (rsample - band) - low;
+            band += f * high;
+            switch(instr.fx_filter)
+            {
+                case 1: // Hipass
+                    rsample = high;
+                    break;
+                case 2: // Lopass
+                    rsample = low;
+                    break;
+                case 3: // Bandpass
+                    rsample = band;
+                    break;
+                case 4: // Notch
+                    rsample = low + high;
+                    break;
+                default:
+            }
+
+            // Panning & master volume
+            t = osc_sin(j * panFreq) * instr.fx_pan_amt / 512 + 0.5;
+            rsample *= 39 * instr.env_master;
+
+            var x = 32768 + rsample * (1 - t);
+            var x1 = x & 255;
+            var x2 = (x >> 8) & 255;
+            var y = 4 * (x1 + (x2 << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            lchan[c] = lchan[c] + (y / 32768);
+
+            x = 32768 + rsample * (t);
+            x1 = x & 255;
+            x2 = (x >> 8) & 255;
+            y = 4 * (x1 + (x2 << 8) - 32768);
+            y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y);
+            rchan[c] = rchan[c] + (y / 32768);
+
+            j++;
+            c++;
         }
 
-        // Panning & master volume
-        t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5;
-        rsample *= 39 * this.instr.env_master;
+        // returns true if the sound finished
+        if (c < lchan.length)
+            return true;
+        return false;
+    };
+};
 
-        // Add to 16-bit channel buffer
-        k <<= 2;
-        var x = chnBuf[k] + (chnBuf[k+1] << 8) + rsample * (1 - t);
-        chnBuf[k] = x & 255;
-        chnBuf[k+1] = (x >> 8) & 255;
-        x = chnBuf[k+2] + (chnBuf[k+3] << 8) + rsample * t;
-        chnBuf[k+2] = x & 255;
-        chnBuf[k+3] = (x >> 8) & 255;
-    }
-};
-sonantx.SoundGenerator.prototype.getAudioGenerator = function(n, duration, callBack) {
-    var self = this;
-    genBuffer(duration * WAVE_SPS, function(buffer) {
-        self.genSound(n, buffer, 0);
-        applyDelay(buffer, duration * WAVE_SPS, self.instr, self.rowLen, function() {
-            callBack(new sonantx.AudioGenerator(buffer));
+sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
+    rowLen = rowLen || 5605;
+    endPattern = endPattern || instr.p.length - 1;
+    
+    this.instr = instr;
+    this.rowLen = rowLen;
+    this.endPattern = endPattern;
+
+    var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
+    var currentSample = 0;
+    var nextNote = 0;
+    var sounds = [];
+    scriptNode.onaudioprocess = function(audioProcessingEvent) {
+        var inputData = audioProcessingEvent.inputBuffer;
+        var outputData = audioProcessingEvent.outputBuffer;
+        var lchan = outputData.getChannelData(0);
+        var rchan = outputData.getChannelData(1);
+        lchan.set(inputData.getChannelData(0));
+        rchan.set(inputData.getChannelData(1));
+
+        sounds.slice().forEach(function(el) {
+            var finished = el.write(lchan, rchan, 0);
+            if (finished) {
+                sounds = sounds.filter(function(el2) { return el2 !== el; });
+            }
         });
-    });
-};
-sonantx.SoundGenerator.prototype.createAudio = function(n, duration, callBack) {
-    this.getAudioGenerator(n, duration, function(ag) {
-        callBack(ag.getAudio());
-    });
-};
-sonantx.SoundGenerator.prototype.createAudioBuffer = function(n, duration, callBack) {
-    this.getAudioGenerator(n, duration, function(ag) {
-        ag.getAudioBuffer(callBack);
-    });
+
+        var nextNoteSample = nextNote * rowLen;
+        while (nextNoteSample >= currentSample &&
+            nextNoteSample < currentSample + inputData.length) {
+            var pattern = instr.p[Math.floor(nextNote / 32) % (this.endPattern + 1)] || 0;
+            var note = pattern == 0 ? 0 : (instr.c[pattern - 1] || {n: []}).n[nextNote % 32] || 0;
+            if (note !== 0) {
+                var sw = new SoundWriter(instr, note, rowLen);
+                sw.write(lchan, rchan, nextNoteSample - currentSample);
+                sounds.push(sw);
+            }
+            nextNote += 1;
+            nextNoteSample = nextNote * rowLen;
+        }
+
+        currentSample += inputData.length;
+    }.bind(this);
+
+    var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2;
+    var delayAmount = instr.fx_delay_amt / 255;
+
+    var delayGain = audioCtx.createGain();
+    delayGain.gain.value = delayAmount;
+    scriptNode.connect(delayGain);
+
+    var delay = audioCtx.createDelay();
+    delay.delayTime.value = delayTime;
+    delayGain.connect(delay);
+    delay.connect(delayGain);
+
+    var mixer = audioCtx.createGain();
+    mixer.gain.value = 1;
+    scriptNode.connect(mixer);
+    delay.connect(mixer);
+
+    this.chain = [scriptNode, delayGain, delay, mixer];
 };
 
 sonantx.MusicGenerator = function(song) {
     this.song = song;
-    // Wave data configuration
-    this.waveSize = WAVE_SPS * song.songLen; // Total song size (in samples)
 
-    // Number of lines per second (song speed)
-    this.lps = WAVE_SPS / song.rowLen;
-};
-sonantx.MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBack) {
-    var self = this;
-    genBuffer(this.waveSize, function(chnBuf) {
-        // Preload/precalc some properties/expressions (for improved performance)
-        var waveSamples = self.waveSize,
-            waveBytes = self.waveSize * WAVE_CHAN * 2,
-            rowLen = self.song.rowLen,
-            endPattern = self.song.endPattern,
-            soundGen = new sonantx.SoundGenerator(instr, rowLen);
+    var source = audioCtx.createOscillator();
+    var nullGain = audioCtx.createGain();
+    nullGain.gain.value = 0;
+    source.connect(nullGain);
 
-        var currentpos = 0;
-        var p = 0;
-        var row = 0;
-        var recordSounds = function() {
-            var beginning = new Date();
-            while (true) {
-                if (row === 32) {
-                    row = 0;
-                    p += 1;
-                    continue;
-                }
-                if (p === endPattern - 1) {
-                    setTimeout(delay, 0);
-                    return;
-                }
-                var cp = instr.p[p];
-                if (cp) {
-                    var n = instr.c[cp - 1].n[row];
-                    if (n) {
-                        soundGen.genSound(n, chnBuf, currentpos);
-                    }
-                }
-                currentpos += rowLen;
-                row += 1;
-                if (new Date() - beginning > MAX_TIME) {
-                    setTimeout(recordSounds, 0);
-                    return;
-                }
-            }
-        };
+    var mixer = audioCtx.createGain();
+    mixer.gain.value = 1;
 
-        var delay = function() {
-            applyDelay(chnBuf, waveSamples, instr, rowLen, finalize);
-        };
+    this.tracks = [];
 
-        var b2 = 0;
-        var finalize = function() {
-            var beginning = new Date();
-            var count = 0;
-            // Add to mix buffer
-            while(b2 < waveBytes)
-            {
-                var x2 = mixBuf[b2] + (mixBuf[b2+1] << 8) + chnBuf[b2] + (chnBuf[b2+1] << 8) - 32768;
-                mixBuf[b2] = x2 & 255;
-                mixBuf[b2+1] = (x2 >> 8) & 255;
-                b2 += 2;
-                count += 1;
-                if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
-                    setTimeout(finalize, 0);
-                    return;
-                }
-            }
-            setTimeout(callBack, 0);
-        };
-        setTimeout(recordSounds, 0);
-    });
+    this.song.songData.forEach(function(el) {
+        var track = new sonantx.TrackGenerator(el, this.song.rowLen, this.song.endPattern);
+        nullGain.connect(track.chain[0]);
+        track.chain[track.chain.length - 1].connect(mixer);
+        this.tracks.push(track);
+    }.bind(this));
+
+    this.chain = [source, nullGain, mixer];
 };
-sonantx.MusicGenerator.prototype.getAudioGenerator = function(callBack) {
-    var self = this;
-    genBuffer(this.waveSize, function(mixBuf) {
-        var t = 0;
-        var recu = function() {
-            if (t < self.song.songData.length) {
-                t += 1;
-                self.generateTrack(self.song.songData[t - 1], mixBuf, recu);
-            } else {
-                callBack(new sonantx.AudioGenerator(mixBuf));
-            }
-        };
-        recu();
-    });
+sonantx.MusicGenerator.prototype.start = function(when) {
+    this.chain[0].start(when);
 };
-sonantx.MusicGenerator.prototype.createAudio = function(callBack) {
-    this.getAudioGenerator(function(ag) {
-        callBack(ag.getAudio());
-    });
-};
-sonantx.MusicGenerator.prototype.createAudioBuffer = function(callBack) {
-    this.getAudioGenerator(function(ag) {
-        ag.getAudioBuffer(callBack);
-    });
+sonantx.MusicGenerator.prototype.connect = function(target) {
+    this.chain[this.chain.length - 1].connect(target);
 };
 
 })();

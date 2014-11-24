@@ -10,88 +10,17 @@
     <script>
     $(function() {
         var audioCtx = sonantx.audioCtx;
-        var songGen = new sonantx.MusicGenerator(song);
-        var time = new Date();
-        /*var buffer = songGen.createAudioBuffer();
-        var source = audioCtx.createBufferSource(); // Create Sound Source
-        source.buffer = buffer; // Add Buffered Data to Object
-        source.connect(audioCtx.destination); // Connect Sound Source to Output
-        source.start();*/
-
-        var elapsed = (new Date() - time) / 1000;
-        $("#elapsed").text("Generation took " + elapsed + " seconds");
-
-        var soundGen;
-
         $("button.btna").click(function() {
-            soundGen = new sonantx.MusicGenerator(song);
+            var soundGen = new sonantx.MusicGenerator(song);
             soundGen.connect(audioCtx.destination);
             soundGen.start();
         });
         $("button.btnb").click(function() {
         });
-
-        var sun = new Image();
-        var moon = new Image();
-        var earth = new Image();
-        sun.src = 'https://mdn.mozillademos.org/files/1456/Canvas_sun.png';
-        moon.src = 'https://mdn.mozillademos.org/files/1443/Canvas_moon.png';
-        earth.src = 'https://mdn.mozillademos.org/files/1429/Canvas_earth.png';
-
-        var lastCheck = new Date();
-        var biggestDownTime = -1;
-
-        setTimeout(draw, 0);
-
-        function draw() {
-            var now = new Date();
-            var downTime = now - lastCheck;
-            if (downTime > biggestDownTime) {
-                biggestDownTime = downTime;
-                $("#downtime").text("Max downtime: " + (downTime / 1000) + " seconds");
-            }
-            lastCheck = now;
-
-            var ctx = document.getElementById('canvas').getContext('2d');
-
-            ctx.globalCompositeOperation = 'destination-over';
-            ctx.clearRect(0,0,300,300); // clear canvas
-
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            ctx.strokeStyle = 'rgba(0,153,255,0.4)';
-            ctx.save();
-            ctx.translate(150,150);
-
-            // Earth
-            var time = new Date();
-            ctx.rotate( ((2*Math.PI)/60)*time.getSeconds() + ((2*Math.PI)/60000)*time.getMilliseconds() );
-            ctx.translate(105,0);
-            ctx.fillRect(0,-12,50,24); // Shadow
-            ctx.drawImage(earth,-12,-12);
-
-            // Moon
-            ctx.save();
-            ctx.rotate( ((2*Math.PI)/6)*time.getSeconds() + ((2*Math.PI)/6000)*time.getMilliseconds() );
-            ctx.translate(0,28.5);
-            ctx.drawImage(moon,-3.5,-3.5);
-            ctx.restore();
-
-            ctx.restore();
-
-            ctx.beginPath();
-            ctx.arc(150,150,105,0,Math.PI*2,false); // Earth orbit
-            ctx.stroke();
-
-            ctx.drawImage(sun,0,0,300,300);
-            setTimeout(draw, (1000 / 60) - (new Date() - now));
-        }
     });
     </script>
 </head>
 <body>
-    <p><span id="elapsed">Generating...</span></p>
-    <p><span id="downtime"></span></p>
-    <p><button class="btna">Ting</button></p>
+    <p><button class="btna">Start</button></p>
     <p><button class="btnb">Stop</button></p>
-    <canvas id="canvas" width="300" height="300"></canvas>
 </body>

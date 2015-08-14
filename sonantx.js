@@ -35,9 +35,6 @@ sonantx = {};
 
 var WAVE_SPS = 44100;
 
-var audioCtx = new AudioContext();
-sonantx.audioCtx = audioCtx;
-
 // Oscillators
 function osc_sin(value)
 {
@@ -184,7 +181,8 @@ function SoundWriter(instr, n, rowLen) {
     };
 };
 
-sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
+sonantx.TrackGenerator = function(audioCtx, instr, rowLen, endPattern) {
+    this.audioCtx = audioCtx;
     rowLen = rowLen || 5605;
     endPattern = endPattern || instr.p.length - 1;
     
@@ -192,7 +190,7 @@ sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
     this.rowLen = rowLen;
     this.endPattern = endPattern;
 
-    var scriptNode = audioCtx.createScriptProcessor(4096, 2, 2);
+    var scriptNode = this.audioCtx.createScriptProcessor(4096, 2, 2);
     var currentSample = 0;
     var nextNote = 0;
     var sounds = [];
@@ -231,16 +229,16 @@ sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
     var delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2;
     var delayAmount = instr.fx_delay_amt / 255;
 
-    var delayGain = audioCtx.createGain();
+    var delayGain = this.audioCtx.createGain();
     delayGain.gain.value = delayAmount;
     scriptNode.connect(delayGain);
 
-    var delay = audioCtx.createDelay();
+    var delay = this.audioCtx.createDelay();
     delay.delayTime.value = delayTime;
     delayGain.connect(delay);
     delay.connect(delayGain);
 
-    var mixer = audioCtx.createGain();
+    var mixer = this.audioCtx.createGain();
     mixer.gain.value = 1;
     scriptNode.connect(mixer);
     delay.connect(mixer);
@@ -248,21 +246,22 @@ sonantx.TrackGenerator = function(instr, rowLen, endPattern) {
     this.chain = [scriptNode, delayGain, delay, mixer];
 };
 
-sonantx.MusicGenerator = function(song) {
+sonantx.MusicGenerator = function(audioCtx, song) {
+    this.audioCtx = audioCtx;
     this.song = song;
 
-    var source = audioCtx.createOscillator();
-    var nullGain = audioCtx.createGain();
+    var source = this.audioCtx.createOscillator();
+    var nullGain = this.audioCtx.createGain();
     nullGain.gain.value = 0;
     source.connect(nullGain);
 
-    var mixer = audioCtx.createGain();
+    var mixer = this.audioCtx.createGain();
     mixer.gain.value = 1;
 
     this.tracks = [];
 
     this.song.songData.forEach(function(el) {
-        var track = new sonantx.TrackGenerator(el, this.song.rowLen, this.song.endPattern);
+        var track = new sonantx.TrackGenerator(this.audioCtx, el, this.song.rowLen, this.song.endPattern);
         nullGain.connect(track.chain[0]);
         track.chain[track.chain.length - 1].connect(mixer);
         this.tracks.push(track);
@@ -271,11 +270,13 @@ sonantx.MusicGenerator = function(song) {
     this.chain = [source, nullGain, mixer];
 };
 sonantx.MusicGenerator.prototype.start = function(when) {
-    this.chain[0].start(when);
+    if (when === undefined)
+        this.chain[0].start();
+    else
+        this.chain[0].start(when);
 };
 sonantx.MusicGenerator.prototype.connect = function(target) {
     this.chain[this.chain.length - 1].connect(target);
 };
 
 })();
-

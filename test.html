@@ -9,9 +9,9 @@
     <script src="sonantx.js"></script>
     <script>
     $(function() {
-        var audioCtx = sonantx.audioCtx;
+        var audioCtx = new AudioContext();
         $("button.btna").click(function() {
-            var soundGen = new sonantx.MusicGenerator(song);
+            var soundGen = new sonantx.MusicGenerator(audioCtx, song);
             soundGen.connect(audioCtx.destination);
             soundGen.start();
         });

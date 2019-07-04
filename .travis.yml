@@ -11,5 +11,5 @@ deploy:
     secure: j/djINNTWUiPTX2AboF4A+CpzUothqX1g9VW80zeEWx1vtJFZnPTKUG0ea6UbG3jpVa3FvpxGXL7sZmithC4+6Lh1hw0rwIUeN/JuiHR06/RS0mGZ4ZfP4wauDQyuHWSvp6Ym3Rp1b7LjIozQUl9njkrfqqXnmI32lR+2ROSj0EW2Hu8cq7TWgF3PJ0Z36spkFBRkUEKojRbOJvWmq7FtW47I04J58zXpr5wsancFrjBb151a4B2iqSkFNkTfGO4xIxP7wFJ5/jRtmYemWcilkueVKom7Xv3EP4wsitbVoeBnwLLh9Rg0k2cLBgBrUT2DOzZNd9PuB7ARWfrBXig/trfDlf4gvvEl4J8OKbcWDRzwH2mtPbd5HTEtlgxlyVrzf9+v3OXuqt6t5JnZv8Vuz/6tWo9u4AFqwqEFzSpwSIzDAez/9ri3o+043ztHKmsAtVQK/UtLk8+nDSkSHVI0ir9buoy4PuV2Gwt7DMn/F9tDgetfZJby15DJYQiG7Ryr2Fgi+EMBKuXAIUkxv4//qZI3A48iXMbEGhDa3rb+FM8lz1JZ7VQsP1cL35eNrbfGYpWYG1zLMSoO7tgv2nK0Yajc2n8TQVMNBKazgcF34+TkvbGHZFUjniGa8+lEQVOo3rgvjfoNxOkMSVQhJZmU89YWpPAxH5dZFA3ESurZo8=
   on:
     tags: true
-    repo: nicolas-van/sonantx
+    repo: nicolas-van/sonant-x
     branch: master

@@ -1,6 +1,26 @@
 {
+  "name": "sonantx",
+  "version": "1.0.0",
+  "description": "Sonant-X",
+  "main": "Gruntfile.js",
+  "scripts": {
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicolas-van/sonant-x.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nicolas-van/sonant-x/issues"
+  },
+  "homepage": "https://github.com/nicolas-van/sonant-x#readme",
   "devDependencies": {
-    "grunt": "~0.4.5",
-    "grunt-contrib-jshint": "~0.10.0"
+    "@babel/core": "^7.4.5",
+    "babel-loader": "^8.0.6",
+    "jquery": "^3.4.1",
+    "webpack": "^4.35.2",
+    "webpack-cli": "^3.3.5"
   }
 }

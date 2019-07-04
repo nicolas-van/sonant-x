@@ -113,6 +113,7 @@ Note that the `buffer` object can be stored and re-used any number of times.
 soundGen.createAudio(147, function(audio) {
     audio.play();
 });
+```
 
 Note that, like all `Audio` objects, this one is not re-usable. If you want to be able to re-create `Audio` objects with
 minimum delay, you can use the following syntax:

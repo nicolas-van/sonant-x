@@ -1,6 +1,8 @@
 Sonant-X
 ========
 
+[![Build Status](https://travis-ci.org/nicolas-van/sonant-x.svg?branch=master)](https://travis-ci.org/nicolas-van/sonant-x) [![npm](https://img.shields.io/npm/v/sonantx.svg)](https://www.npmjs.com/package/sonantx)
+
 A very small JavaScript synthesizer library, suitable for small JavaScript demos or video games.
 
 Sonant-X was created with video games' sound effects and music in mind, as well as size-restrained demos. It supports

@@ -2,7 +2,7 @@
   "name": "sonantx",
   "version": "1.0.0",
   "description": "Sonant-X",
-  "main": "Gruntfile.js",
+  "main": "dist/sonantx.bundle.js",
   "scripts": {
     "build": "webpack"
   },

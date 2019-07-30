@@ -3,6 +3,12 @@
   "version": "1.0.2",
   "description": "Sonant-X",
   "main": "dist/sonantx.bundle.js",
+  "keywords": [
+    "audio",
+    "music",
+    "synthesizer",
+    "webaudioapi"
+  ],
   "scripts": {
     "build": "webpack"
   },

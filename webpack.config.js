@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('path')
 
 module.exports = {
   entry: path.resolve(__dirname, 'sonantx.js'),
@@ -6,7 +6,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'sonantx.bundle.js',
     library: 'sonantx',
-    libraryTarget: 'umd',
+    libraryTarget: 'umd'
   },
   module: {
     rules: [
@@ -15,5 +15,5 @@ module.exports = {
         use: 'babel-loader'
       }
     ]
-  },
-};
+  }
+}

@@ -72,7 +72,7 @@ function genBuffer (waveSize, callBack) {
     // Create the channel work buffer
     const buf = new Uint8Array(waveSize * WAVE_CHAN * 2)
     let b = buf.length - 2
-    var iterate = function () {
+    const iterate = function () {
       const begin = new Date()
       let count = 0
       while (b >= 0) {
@@ -96,7 +96,7 @@ function applyDelay (chnBuf, waveSamples, instr, rowLen, callBack) {
   const t1 = instr.fx_delay_amt / 255
 
   let n1 = 0
-  var iterate = function () {
+  const iterate = function () {
     const beginning = new Date()
     let count = 0
     while (n1 < waveSamples - p1) {
@@ -137,14 +137,18 @@ AudioGenerator.prototype.getWave = function () {
   const mixBuf = this.mixBuf
   const waveSize = this.waveSize
   // Local variables
-  let b, k, x, wave, l1, l2, s, y
+  let b
+  let k
+  let x
+  let wave
+  let y
 
   // Turn critical object properties into local variables (performance)
   const waveBytes = waveSize * WAVE_CHAN * 2
 
   // Convert to a WAVE file (in a binary string)
-  l1 = waveBytes - 8
-  l2 = l1 - 36
+  const l1 = waveBytes - 8
+  const l2 = l1 - 36
   wave = String.fromCharCode(82, 73, 70, 70,
     l1 & 255, (l1 >> 8) & 255, (l1 >> 16) & 255, (l1 >> 24) & 255,
     87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 2, 0,
@@ -181,7 +185,7 @@ AudioGenerator.prototype.getAudioBuffer = function (callBack) {
   const lchan = buffer.getChannelData(0)
   const rchan = buffer.getChannelData(1)
   let b = 0
-  var iterate = function () {
+  const iterate = function () {
     const beginning = new Date()
     let count = 0
     while (b < waveSize) {
@@ -220,7 +224,6 @@ const SoundGenerator = function (instr, rowLen) {
 export { SoundGenerator }
 
 SoundGenerator.prototype.genSound = function (n, chnBuf, currentpos) {
-  const marker = new Date()
   let c1 = 0
   let c2 = 0
 
@@ -341,7 +344,7 @@ MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBack) {
     let currentpos = 0
     let p = 0
     let row = 0
-    var recordSounds = function () {
+    const recordSounds = function () {
       const beginning = new Date()
       while (true) {
         if (row === 32) {
@@ -369,12 +372,12 @@ MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBack) {
       }
     }
 
-    var delay = function () {
+    const delay = function () {
       applyDelay(chnBuf, waveSamples, instr, rowLen, finalize)
     }
 
     let b2 = 0
-    var finalize = function () {
+    const finalize = function () {
       const beginning = new Date()
       let count = 0
       // Add to mix buffer
@@ -398,7 +401,7 @@ MusicGenerator.prototype.getAudioGenerator = function (callBack) {
   const self = this
   genBuffer(this.waveSize, function (mixBuf) {
     let t = 0
-    var recu = function () {
+    const recu = function () {
       if (t < self.song.songData.length) {
         t += 1
         self.generateTrack(self.song.songData[t - 1], mixBuf, recu)

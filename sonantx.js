@@ -126,299 +126,307 @@ function applyDelay (chnBuf, waveSamples, instr, rowLen, callBack) {
   setTimeout(iterate, 0)
 }
 
-const AudioGenerator = function (mixBuf) {
-  this.mixBuf = mixBuf
-  this.waveSize = mixBuf.length / WAVE_CHAN / 2
-}
-
-export { AudioGenerator }
-
-AudioGenerator.prototype.getWave = function () {
-  const mixBuf = this.mixBuf
-  const waveSize = this.waveSize
-  // Local variables
-  let b
-  let k
-  let x
-  let wave
-  let y
-
-  // Turn critical object properties into local variables (performance)
-  const waveBytes = waveSize * WAVE_CHAN * 2
-
-  // Convert to a WAVE file (in a binary string)
-  const l1 = waveBytes - 8
-  const l2 = l1 - 36
-  wave = String.fromCharCode(82, 73, 70, 70,
-    l1 & 255, (l1 >> 8) & 255, (l1 >> 16) & 255, (l1 >> 24) & 255,
-    87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 2, 0,
-    68, 172, 0, 0, 16, 177, 2, 0, 4, 0, 16, 0, 100, 97, 116, 97,
-    l2 & 255, (l2 >> 8) & 255, (l2 >> 16) & 255, (l2 >> 24) & 255)
-  b = 0
-  while (b < waveBytes) {
-    // This is a GC & speed trick: don't add one char at a time - batch up
-    // larger partial strings
-    x = ''
-    for (k = 0; k < 256 && b < waveBytes; ++k, b += 2) {
-      // Note: We amplify and clamp here
-      y = 4 * (mixBuf[b] + (mixBuf[b + 1] << 8) - 32768)
-      y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
-      x += String.fromCharCode(y & 255, (y >> 8) & 255)
-    }
-    wave += x
+export class AudioGenerator {
+  constructor (mixBuf) {
+    this.mixBuf = mixBuf
+    this.waveSize = mixBuf.length / WAVE_CHAN / 2
   }
-  return wave
-}
-AudioGenerator.prototype.getAudio = function () {
-  const wave = this.getWave()
-  const a = new Audio('data:audio/wav;base64,' + btoa(wave))
-  a.preload = 'none'
-  a.load()
-  return a
-}
-AudioGenerator.prototype.getAudioBuffer = function (callBack) {
-  if (audioCtx === null) { audioCtx = new AudioContext() }
-  const mixBuf = this.mixBuf
-  const waveSize = this.waveSize
 
-  const buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS) // Create Mono Source Buffer from Raw Binary
-  const lchan = buffer.getChannelData(0)
-  const rchan = buffer.getChannelData(1)
-  let b = 0
-  const iterate = function () {
-    const beginning = new Date()
-    let count = 0
-    while (b < waveSize) {
-      let y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768)
-      y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
-      lchan[b] = y / 32768
-      y = 4 * (mixBuf[(b * 4) + 2] + (mixBuf[(b * 4) + 3] << 8) - 32768)
-      y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
-      rchan[b] = y / 32768
-      b += 1
-      count += 1
-      if (count % 1000 === 0 && new Date() - beginning > MAX_TIME) {
-        setTimeout(iterate, 0)
-        return
+  getWave () {
+    const mixBuf = this.mixBuf
+    const waveSize = this.waveSize
+    // Local variables
+    let b
+    let k
+    let x
+    let wave
+    let y
+
+    // Turn critical object properties into local variables (performance)
+    const waveBytes = waveSize * WAVE_CHAN * 2
+
+    // Convert to a WAVE file (in a binary string)
+    const l1 = waveBytes - 8
+    const l2 = l1 - 36
+    wave = String.fromCharCode(82, 73, 70, 70,
+      l1 & 255, (l1 >> 8) & 255, (l1 >> 16) & 255, (l1 >> 24) & 255,
+      87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 2, 0,
+      68, 172, 0, 0, 16, 177, 2, 0, 4, 0, 16, 0, 100, 97, 116, 97,
+      l2 & 255, (l2 >> 8) & 255, (l2 >> 16) & 255, (l2 >> 24) & 255)
+    b = 0
+    while (b < waveBytes) {
+      // This is a GC & speed trick: don't add one char at a time - batch up
+      // larger partial strings
+      x = ''
+      for (k = 0; k < 256 && b < waveBytes; ++k, b += 2) {
+        // Note: We amplify and clamp here
+        y = 4 * (mixBuf[b] + (mixBuf[b + 1] << 8) - 32768)
+        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
+        x += String.fromCharCode(y & 255, (y >> 8) & 255)
       }
+      wave += x
     }
-    setTimeout(function () { callBack(buffer) }, 0)
+    return wave
   }
-  setTimeout(iterate, 0)
-}
 
-const SoundGenerator = function (instr, rowLen) {
-  this.instr = instr
-  this.rowLen = rowLen || 5605
-
-  this.osc_lfo = oscillators[instr.lfo_waveform]
-  this.osc1 = oscillators[instr.osc1_waveform]
-  this.osc2 = oscillators[instr.osc2_waveform]
-  this.attack = instr.env_attack
-  this.sustain = instr.env_sustain
-  this.release = instr.env_release
-  this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen
-  this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen
-}
-
-export { SoundGenerator }
-
-SoundGenerator.prototype.genSound = function (n, chnBuf, currentpos) {
-  let c1 = 0
-  let c2 = 0
-
-  // Precalculate frequencues
-  const o1t = getnotefreq(n + (this.instr.osc1_oct - 8) * 12 + this.instr.osc1_det) * (1 + 0.0008 * this.instr.osc1_detune)
-  const o2t = getnotefreq(n + (this.instr.osc2_oct - 8) * 12 + this.instr.osc2_det) * (1 + 0.0008 * this.instr.osc2_detune)
-
-  // State variable init
-  const q = this.instr.fx_resonance / 255
-  let low = 0
-  let band = 0
-  for (let j = this.attack + this.sustain + this.release - 1; j >= 0; --j) {
-    let k = j + currentpos
-
-    // LFO
-    const lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5
-
-    // Envelope
-    let e = 1
-    if (j < this.attack) { e = j / this.attack } else if (j >= this.attack + this.sustain) { e -= (j - this.attack - this.sustain) / this.release }
-
-    // Oscillator 1
-    let t = o1t
-    if (this.instr.lfo_osc1_freq) t += lfor
-    if (this.instr.osc1_xenv) t *= e * e
-    c1 += t
-    let rsample = this.osc1(c1) * this.instr.osc1_vol
-
-    // Oscillator 2
-    t = o2t
-    if (this.instr.osc2_xenv) t *= e * e
-    c2 += t
-    rsample += this.osc2(c2) * this.instr.osc2_vol
-
-    // Noise oscillator
-    if (this.instr.noise_fader) rsample += (2 * Math.random() - 1) * this.instr.noise_fader * e
-
-    rsample *= e / 255
-
-    // State variable filter
-    let f = this.instr.fx_freq
-    if (this.instr.lfo_fx_freq) f *= lfor
-    f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS)
-    low += f * band
-    const high = q * (rsample - band) - low
-    band += f * high
-    switch (this.instr.fx_filter) {
-      case 1: // Hipass
-        rsample = high
-        break
-      case 2: // Lopass
-        rsample = low
-        break
-      case 3: // Bandpass
-        rsample = band
-        break
-      case 4: // Notch
-        rsample = low + high
-        break
-      default:
-    }
-
-    // Panning & master volume
-    t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5
-    rsample *= 39 * this.instr.env_master
-
-    // Add to 16-bit channel buffer
-    k = k * 4
-    if (k + 3 < chnBuf.length) {
-      let x = chnBuf[k] + (chnBuf[k + 1] << 8) + rsample * (1 - t)
-      chnBuf[k] = x & 255
-      chnBuf[k + 1] = (x >> 8) & 255
-      x = chnBuf[k + 2] + (chnBuf[k + 3] << 8) + rsample * t
-      chnBuf[k + 2] = x & 255
-      chnBuf[k + 3] = (x >> 8) & 255
-    }
+  getAudio () {
+    const wave = this.getWave()
+    const a = new Audio('data:audio/wav;base64,' + btoa(wave))
+    a.preload = 'none'
+    a.load()
+    return a
   }
-}
-SoundGenerator.prototype.getAudioGenerator = function (n, callBack) {
-  const bufferSize = (this.attack + this.sustain + this.release - 1) + (32 * this.rowLen)
-  const self = this
-  genBuffer(bufferSize, function (buffer) {
-    self.genSound(n, buffer, 0)
-    applyDelay(buffer, bufferSize, self.instr, self.rowLen, function () {
-      callBack(new AudioGenerator(buffer))
-    })
-  })
-}
-SoundGenerator.prototype.createAudio = function (n, callBack) {
-  this.getAudioGenerator(n, function (ag) {
-    callBack(ag.getAudio())
-  })
-}
-SoundGenerator.prototype.createAudioBuffer = function (n, callBack) {
-  this.getAudioGenerator(n, function (ag) {
-    ag.getAudioBuffer(callBack)
-  })
-}
 
-const MusicGenerator = function (song) {
-  this.song = song
-  // Wave data configuration
-  this.waveSize = WAVE_SPS * song.songLen // Total song size (in samples)
-}
+  getAudioBuffer (callBack) {
+    if (audioCtx === null) { audioCtx = new AudioContext() }
+    const mixBuf = this.mixBuf
+    const waveSize = this.waveSize
 
-export { MusicGenerator }
-
-MusicGenerator.prototype.generateTrack = function (instr, mixBuf, callBack) {
-  const self = this
-  genBuffer(this.waveSize, function (chnBuf) {
-    // Preload/precalc some properties/expressions (for improved performance)
-    const waveSamples = self.waveSize
-    const waveBytes = self.waveSize * WAVE_CHAN * 2
-    const rowLen = self.song.rowLen
-    const endPattern = self.song.endPattern
-    const soundGen = new SoundGenerator(instr, rowLen)
-
-    let currentpos = 0
-    let p = 0
-    let row = 0
-    const recordSounds = function () {
-      const beginning = new Date()
-      while (true) {
-        if (row === 32) {
-          row = 0
-          p += 1
-          continue
-        }
-        if (p === endPattern - 1) {
-          setTimeout(delay, 0)
-          return
-        }
-        const cp = instr.p[p]
-        if (cp) {
-          const n = instr.c[cp - 1].n[row]
-          if (n) {
-            soundGen.genSound(n, chnBuf, currentpos)
-          }
-        }
-        currentpos += rowLen
-        row += 1
-        if (new Date() - beginning > MAX_TIME) {
-          setTimeout(recordSounds, 0)
-          return
-        }
-      }
-    }
-
-    const delay = function () {
-      applyDelay(chnBuf, waveSamples, instr, rowLen, finalize)
-    }
-
-    let b2 = 0
-    const finalize = function () {
+    const buffer = audioCtx.createBuffer(WAVE_CHAN, this.waveSize, WAVE_SPS) // Create Mono Source Buffer from Raw Binary
+    const lchan = buffer.getChannelData(0)
+    const rchan = buffer.getChannelData(1)
+    let b = 0
+    const iterate = function () {
       const beginning = new Date()
       let count = 0
-      // Add to mix buffer
-      while (b2 < waveBytes) {
-        const x2 = mixBuf[b2] + (mixBuf[b2 + 1] << 8) + chnBuf[b2] + (chnBuf[b2 + 1] << 8) - 32768
-        mixBuf[b2] = x2 & 255
-        mixBuf[b2 + 1] = (x2 >> 8) & 255
-        b2 += 2
+      while (b < waveSize) {
+        let y = 4 * (mixBuf[b * 4] + (mixBuf[(b * 4) + 1] << 8) - 32768)
+        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
+        lchan[b] = y / 32768
+        y = 4 * (mixBuf[(b * 4) + 2] + (mixBuf[(b * 4) + 3] << 8) - 32768)
+        y = y < -32768 ? -32768 : (y > 32767 ? 32767 : y)
+        rchan[b] = y / 32768
+        b += 1
         count += 1
-        if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
-          setTimeout(finalize, 0)
+        if (count % 1000 === 0 && new Date() - beginning > MAX_TIME) {
+          setTimeout(iterate, 0)
           return
         }
       }
-      setTimeout(callBack, 0)
+      setTimeout(function () { callBack(buffer) }, 0)
     }
-    setTimeout(recordSounds, 0)
-  })
+    setTimeout(iterate, 0)
+  }
 }
-MusicGenerator.prototype.getAudioGenerator = function (callBack) {
-  const self = this
-  genBuffer(this.waveSize, function (mixBuf) {
-    let t = 0
-    const recu = function () {
-      if (t < self.song.songData.length) {
-        t += 1
-        self.generateTrack(self.song.songData[t - 1], mixBuf, recu)
-      } else {
-        callBack(new AudioGenerator(mixBuf))
+
+export class SoundGenerator {
+  constructor (instr, rowLen) {
+    this.instr = instr
+    this.rowLen = rowLen || 5605
+
+    this.osc_lfo = oscillators[instr.lfo_waveform]
+    this.osc1 = oscillators[instr.osc1_waveform]
+    this.osc2 = oscillators[instr.osc2_waveform]
+    this.attack = instr.env_attack
+    this.sustain = instr.env_sustain
+    this.release = instr.env_release
+    this.panFreq = Math.pow(2, instr.fx_pan_freq - 8) / this.rowLen
+    this.lfoFreq = Math.pow(2, instr.lfo_freq - 8) / this.rowLen
+  }
+
+  genSound (n, chnBuf, currentpos) {
+    let c1 = 0
+    let c2 = 0
+
+    // Precalculate frequencues
+    const o1t = getnotefreq(n + (this.instr.osc1_oct - 8) * 12 + this.instr.osc1_det) * (1 + 0.0008 * this.instr.osc1_detune)
+    const o2t = getnotefreq(n + (this.instr.osc2_oct - 8) * 12 + this.instr.osc2_det) * (1 + 0.0008 * this.instr.osc2_detune)
+
+    // State variable init
+    const q = this.instr.fx_resonance / 255
+    let low = 0
+    let band = 0
+    for (let j = this.attack + this.sustain + this.release - 1; j >= 0; --j) {
+      let k = j + currentpos
+
+      // LFO
+      const lfor = this.osc_lfo(k * this.lfoFreq) * this.instr.lfo_amt / 512 + 0.5
+
+      // Envelope
+      let e = 1
+      if (j < this.attack) { e = j / this.attack } else if (j >= this.attack + this.sustain) { e -= (j - this.attack - this.sustain) / this.release }
+
+      // Oscillator 1
+      let t = o1t
+      if (this.instr.lfo_osc1_freq) t += lfor
+      if (this.instr.osc1_xenv) t *= e * e
+      c1 += t
+      let rsample = this.osc1(c1) * this.instr.osc1_vol
+
+      // Oscillator 2
+      t = o2t
+      if (this.instr.osc2_xenv) t *= e * e
+      c2 += t
+      rsample += this.osc2(c2) * this.instr.osc2_vol
+
+      // Noise oscillator
+      if (this.instr.noise_fader) rsample += (2 * Math.random() - 1) * this.instr.noise_fader * e
+
+      rsample *= e / 255
+
+      // State variable filter
+      let f = this.instr.fx_freq
+      if (this.instr.lfo_fx_freq) f *= lfor
+      f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS)
+      low += f * band
+      const high = q * (rsample - band) - low
+      band += f * high
+      switch (this.instr.fx_filter) {
+        case 1: // Hipass
+          rsample = high
+          break
+        case 2: // Lopass
+          rsample = low
+          break
+        case 3: // Bandpass
+          rsample = band
+          break
+        case 4: // Notch
+          rsample = low + high
+          break
+        default:
+      }
+
+      // Panning & master volume
+      t = osc_sin(k * this.panFreq) * this.instr.fx_pan_amt / 512 + 0.5
+      rsample *= 39 * this.instr.env_master
+
+      // Add to 16-bit channel buffer
+      k = k * 4
+      if (k + 3 < chnBuf.length) {
+        let x = chnBuf[k] + (chnBuf[k + 1] << 8) + rsample * (1 - t)
+        chnBuf[k] = x & 255
+        chnBuf[k + 1] = (x >> 8) & 255
+        x = chnBuf[k + 2] + (chnBuf[k + 3] << 8) + rsample * t
+        chnBuf[k + 2] = x & 255
+        chnBuf[k + 3] = (x >> 8) & 255
       }
     }
-    recu()
-  })
+  }
+
+  getAudioGenerator (n, callBack) {
+    const bufferSize = (this.attack + this.sustain + this.release - 1) + (32 * this.rowLen)
+    const self = this
+    genBuffer(bufferSize, function (buffer) {
+      self.genSound(n, buffer, 0)
+      applyDelay(buffer, bufferSize, self.instr, self.rowLen, function () {
+        callBack(new AudioGenerator(buffer))
+      })
+    })
+  }
+
+  createAudio (n, callBack) {
+    this.getAudioGenerator(n, function (ag) {
+      callBack(ag.getAudio())
+    })
+  }
+
+  createAudioBuffer (n, callBack) {
+    this.getAudioGenerator(n, function (ag) {
+      ag.getAudioBuffer(callBack)
+    })
+  }
 }
-MusicGenerator.prototype.createAudio = function (callBack) {
-  this.getAudioGenerator(function (ag) {
-    callBack(ag.getAudio())
-  })
-}
-MusicGenerator.prototype.createAudioBuffer = function (callBack) {
-  this.getAudioGenerator(function (ag) {
-    ag.getAudioBuffer(callBack)
-  })
+
+export class MusicGenerator {
+  constructor (song) {
+    this.song = song
+    // Wave data configuration
+    this.waveSize = WAVE_SPS * song.songLen // Total song size (in samples)
+  }
+
+  generateTrack (instr, mixBuf, callBack) {
+    const self = this
+    genBuffer(this.waveSize, function (chnBuf) {
+      // Preload/precalc some properties/expressions (for improved performance)
+      const waveSamples = self.waveSize
+      const waveBytes = self.waveSize * WAVE_CHAN * 2
+      const rowLen = self.song.rowLen
+      const endPattern = self.song.endPattern
+      const soundGen = new SoundGenerator(instr, rowLen)
+
+      let currentpos = 0
+      let p = 0
+      let row = 0
+      const recordSounds = function () {
+        const beginning = new Date()
+        while (true) {
+          if (row === 32) {
+            row = 0
+            p += 1
+            continue
+          }
+          if (p === endPattern - 1) {
+            setTimeout(delay, 0)
+            return
+          }
+          const cp = instr.p[p]
+          if (cp) {
+            const n = instr.c[cp - 1].n[row]
+            if (n) {
+              soundGen.genSound(n, chnBuf, currentpos)
+            }
+          }
+          currentpos += rowLen
+          row += 1
+          if (new Date() - beginning > MAX_TIME) {
+            setTimeout(recordSounds, 0)
+            return
+          }
+        }
+      }
+
+      const delay = function () {
+        applyDelay(chnBuf, waveSamples, instr, rowLen, finalize)
+      }
+
+      let b2 = 0
+      const finalize = function () {
+        const beginning = new Date()
+        let count = 0
+        // Add to mix buffer
+        while (b2 < waveBytes) {
+          const x2 = mixBuf[b2] + (mixBuf[b2 + 1] << 8) + chnBuf[b2] + (chnBuf[b2 + 1] << 8) - 32768
+          mixBuf[b2] = x2 & 255
+          mixBuf[b2 + 1] = (x2 >> 8) & 255
+          b2 += 2
+          count += 1
+          if (count % 1000 === 0 && (new Date() - beginning) > MAX_TIME) {
+            setTimeout(finalize, 0)
+            return
+          }
+        }
+        setTimeout(callBack, 0)
+      }
+      setTimeout(recordSounds, 0)
+    })
+  }
+
+  getAudioGenerator (callBack) {
+    const self = this
+    genBuffer(this.waveSize, function (mixBuf) {
+      let t = 0
+      const recu = function () {
+        if (t < self.song.songData.length) {
+          t += 1
+          self.generateTrack(self.song.songData[t - 1], mixBuf, recu)
+        } else {
+          callBack(new AudioGenerator(mixBuf))
+        }
+      }
+      recu()
+    })
+  }
+
+  createAudio (callBack) {
+    this.getAudioGenerator(function (ag) {
+      callBack(ag.getAudio())
+    })
+  }
+
+  createAudioBuffer (callBack) {
+    this.getAudioGenerator(function (ag) {
+      ag.getAudioBuffer(callBack)
+    })
+  }
 }

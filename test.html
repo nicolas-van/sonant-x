@@ -24,6 +24,7 @@
 
         var soundGen = new sonantx.SoundGenerator(song.songData[0]);
         soundGen.createAudioBuffer(142, function(buffer) {
+            console.log('buffer', buffer)
             $("button").click(function() {
                 var source = audioCtx.createBufferSource(); // Create Sound Source
                 source.buffer = buffer; // Add Buffered Data to Object

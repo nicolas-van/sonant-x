@@ -8,10 +8,74 @@
   <script src="example-songs/4k-synth.js"></script>
   <script src="dist/sonantx.bundle.js"></script>
   <script>
-  $(function() {
+  $(async () => {
     const audioCtx = new AudioContext({
       sampleRate: 96000
     })
+
+    let buf
+
+    let audioBufferSource = null
+
+    $("button.btna").click(function() {
+      if (audioBufferSource) {
+        audioBufferSource.stop()
+        audioBufferSource = null
+      }
+      audioBufferSource = audioCtx.createBufferSource()
+      audioBufferSource.buffer = buf
+      audioBufferSource.connect(audioCtx.destination)
+      audioBufferSource.start()
+    });
+    $("button.btnb").click(function() {
+      audioBufferSource.stop()
+      audioBufferSource = null
+    });
+
+    $('button.ting').click(async () => {
+      const instr = {
+        osc1_oct: 9,
+        osc1_det: 0,
+        osc1_detune: 0,
+        osc1_xenv: 0,
+        osc1_vol: 161,
+        osc1_waveform: 0,
+        osc2_oct: 9,
+        osc2_det: 0,
+        osc2_detune: 4,
+        osc2_xenv: 0,
+        osc2_vol: 182,
+        osc2_waveform: 0,
+        noise_fader: 0,
+        env_attack: 100,
+        env_sustain: 1818,
+        env_release: 18181,
+        env_master: 192,
+        fx_filter: 0,
+        fx_freq: 0,
+        fx_resonance: 254,
+        fx_delay_time: 6,
+        fx_delay_amt: 108,
+        fx_pan_freq: 3,
+        fx_pan_amt: 61,
+        lfo_osc1_freq: 0,
+        lfo_fx_freq: 0,
+        lfo_freq: 3,
+        lfo_amt: 94,
+        lfo_waveform: 2,
+      }
+      const buf = await sonantx.generateSound(instr, 67, audioCtx.sampleRate, 118)
+      const audioBufferSource = audioCtx.createBufferSource()
+      audioBufferSource.buffer = buf
+      audioBufferSource.connect(audioCtx.destination)
+      audioBufferSource.start()
+    })
+
+    console.log('generating music')
+    buf = await sonantx.generateMusic(song, audioCtx.sampleRate)
+    console.log('finished generating music')
+
+    /*
     console.log(audioCtx)
     let soundGen
     $("button.btna").click(function() {
@@ -26,11 +90,12 @@
     $("button.btnb").click(function() {
       soundGen.stop()
       soundGen = null
-    });
+    });*/
   });
   </script>
 </head>
 <body>
   <p><button class="btna">Start</button></p>
   <p><button class="btnb">Stop</button></p>
+  <p><button class="ting">Ting</button></p>
 </body>

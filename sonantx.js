@@ -72,11 +72,13 @@ class SoundWriter {
     const panFreq = Math.pow(2, instr.fx_pan_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
     const lfoFreq = Math.pow(2, instr.lfo_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
 
-    const adaptTime = (n) => (n / 44100) * this.audioCtx.sampleRate
+    const attackTime = instr.env_attack / 44100
+    const releaseTime = instr.env_release / 44100
+    const sustainTime = instr.env_sustain / 44100
 
-    const env_attack = adaptTime(instr.env_attack)
-    const env_release = adaptTime(instr.env_release)
-    const env_sustain = adaptTime(instr.env_sustain)
+    const env_attack = attackTime * this.audioCtx.sampleRate
+    const env_release = releaseTime * this.audioCtx.sampleRate
+    const env_sustain = sustainTime * this.audioCtx.sampleRate
 
     // Precalculate frequencues
     const o1t = getnotefreq(this.audioCtx, n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
@@ -187,7 +189,13 @@ export class TrackGenerator {
     this.bpm = bpm
     this.endPattern = endPattern
 
+    const source = this.audioCtx.createOscillator()
+    const nullGain = this.audioCtx.createGain()
+    nullGain.gain.value = 0
+    source.connect(nullGain)
+
     const scriptNode = this.audioCtx.createScriptProcessor(4096, 2, 2)
+    nullGain.connect(scriptNode)
     let currentSample = 0
     let nextNote = 0
     let sounds = []
@@ -225,7 +233,7 @@ export class TrackGenerator {
       currentSample += inputData.length
     }
 
-    const delayTime = instr.fx_delay_time * (this.bpm / 60 / 32)
+    const delayTime = instr.fx_delay_time * ((1 / (this.bpm / 60)) / 8)
     const delayAmount = instr.fx_delay_amt / 255
 
     const delayGain = this.audioCtx.createGain()
@@ -242,38 +250,7 @@ export class TrackGenerator {
     scriptNode.connect(mixer)
     delay.connect(mixer)
 
-    this.chain = [scriptNode, delayGain, delay, mixer]
-  }
-}
-
-export class MusicGenerator {
-  constructor (audioCtx, song) {
-    this.audioCtx = audioCtx
-    this.song = song
-
-    const source = this.audioCtx.createOscillator()
-    const nullGain = this.audioCtx.createGain()
-    nullGain.gain.value = 0
-    source.connect(nullGain)
-
-    const mixer = this.audioCtx.createGain()
-    mixer.gain.value = 1
-
-    this.tracks = []
-
-    this.song.songData.forEach((el) => {
-      const track = new TrackGenerator(this.audioCtx, el, this.bpm, this.song.endPattern)
-      nullGain.connect(track.chain[0])
-      track.chain[track.chain.length - 1].connect(mixer)
-      this.tracks.push(track)
-    })
-
-    this.chain = [source, nullGain, this.tracks, mixer]
-  }
-
-  get bpm () {
-    // rowLen is a number of samples when using 44100hz
-    return Math.round((60 * 44100 / 4) / this.song.rowLen)
+    this.chain = [source, nullGain, scriptNode, delayGain, delay, mixer]
   }
 
   start (when) {
@@ -288,4 +265,96 @@ export class MusicGenerator {
   connect (target) {
     this.chain[this.chain.length - 1].connect(target)
   }
+}
+
+export class MusicGenerator {
+  constructor (audioCtx, song) {
+    this.audioCtx = audioCtx
+    this.song = song
+
+    const mixer = this.audioCtx.createGain()
+    mixer.gain.value = 1
+
+    this.tracks = []
+
+    this.song.songData.forEach((el) => {
+      const track = new TrackGenerator(this.audioCtx, el, this.bpm, this.song.endPattern)
+      track.connect(mixer)
+      this.tracks.push(track)
+    })
+
+    this.chain = [this.tracks, mixer]
+  }
+
+  get bpm () {
+    // rowLen is a number of samples when using 44100hz
+    return Math.round((60 * 44100 / 4) / this.song.rowLen)
+  }
+
+  start (when) {
+    when = when || this.audioCtx.currentTime
+    this.tracks.forEach((t) => t.start(when))
+  }
+
+  stop (when) {
+    when = when || this.audioCtx.currentTime
+    this.tracks.forEach((t) => t.stop(when))
+    this.chain[this.chain.length - 1].disconnect()
+  }
+
+  connect (target) {
+    this.chain[this.chain.length - 1].connect(target)
+  }
+}
+
+/**
+ * Generates a single note from an instrument.
+ *
+ * @param {*} instr The instrument descriptor
+ * @param {*} n The note as a midi note
+ * @param {*} sampleRate The sample rate
+ * @param {*} bpm The bpm of the song
+ * @returns {AudioBuffer} The generated audio buffer
+ */
+export async function generateSound (instr, n, sampleRate, bpm = 120) {
+  const attackTime = instr.env_attack / 44100
+  const releaseTime = instr.env_release / 44100
+  const sustainTime = instr.env_sustain / 44100
+  const soundLenSeconds = attackTime + releaseTime + sustainTime + (8 * (1 / (bpm / 60)))
+
+  const nInstr = Object.assign({}, instr)
+  nInstr.p = [1, 0, 0, 0]
+  nInstr.c = [{
+    n: new Array(32).map(() => 0)
+  }]
+  nInstr.c[0].n[0] = n + 75
+
+  const audioCtx = new OfflineAudioContext(2, soundLenSeconds * sampleRate, sampleRate)
+
+  const soundGen = new TrackGenerator(audioCtx, nInstr, bpm, 0)
+  soundGen.connect(audioCtx.destination)
+  soundGen.start()
+
+  const buf = await audioCtx.startRendering()
+  return buf
+}
+
+/**
+ * Generates a complete song from a song description.
+ *
+ * @param {*} song The song description
+ * @param {*} options `sampleRate`: the sample rate
+ * @returns {AudioBuffer} The generated audio buffer
+ */
+export async function generateMusic (song, sampleRate) {
+  const songLenSeconds = song.songLen
+
+  const audioCtx = new OfflineAudioContext(2, songLenSeconds * sampleRate, sampleRate)
+
+  const soundGen = new MusicGenerator(audioCtx, song)
+  soundGen.connect(audioCtx.destination)
+  soundGen.start()
+
+  const buf = await audioCtx.startRendering()
+  return buf
 }

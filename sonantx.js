@@ -1,6 +1,4 @@
 
-const WAVE_SPS = 44100 // Samples per second
-
 // Oscillators
 function osc_sin (value) {
   return Math.sin(value * 6.283184)
@@ -35,7 +33,8 @@ function getnotefreq (n) {
 }
 
 class SoundWriter {
-  constructor (instr, n, rowLen) {
+  constructor (audioCtx, instr, n, rowLen) {
+    this.audioCtx = audioCtx
     this.instr = instr
     this.n = n
     this.rowLen = rowLen
@@ -109,7 +108,7 @@ class SoundWriter {
       if (instr.lfo_fx_freq) {
         f *= lfor
       }
-      f = 1.5 * Math.sin(f * 3.141592 / WAVE_SPS)
+      f = 1.5 * Math.sin(f * 3.141592 / this.audioCtx.sampleRate)
       this.low += f * this.band
       const high = q * (rsample - this.band) - this.low
       this.band += f * high
@@ -194,7 +193,7 @@ export class TrackGenerator {
         const pattern = instr.p[Math.floor(nextNote / 32) % (this.endPattern + 1)] || 0
         const note = pattern === 0 ? 0 : (instr.c[pattern - 1] || { n: [] }).n[nextNote % 32] || 0
         if (note !== 0) {
-          const sw = new SoundWriter(instr, note, rowLen)
+          const sw = new SoundWriter(this.audioCtx, instr, note, rowLen)
           sw.write(lchan, rchan, nextNoteSample - currentSample)
           sounds.push(sw)
         }
@@ -205,7 +204,7 @@ export class TrackGenerator {
       currentSample += inputData.length
     }.bind(this)
 
-    const delayTime = (instr.fx_delay_time * rowLen) / WAVE_SPS / 2
+    const delayTime = (instr.fx_delay_time * rowLen) / audioCtx.sampleRate / 2
     const delayAmount = instr.fx_delay_amt / 255
 
     const delayGain = this.audioCtx.createGain()

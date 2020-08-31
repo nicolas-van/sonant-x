@@ -180,7 +180,7 @@ class SoundWriter {
   }
 }
 
-export class TrackGenerator {
+class TrackGenerator {
   constructor (audioCtx, instr, bpm, endPattern) {
     bpm = bpm || 118
     endPattern = endPattern || instr.p.length - 1
@@ -267,7 +267,7 @@ export class TrackGenerator {
   }
 }
 
-export class MusicGenerator {
+class MusicGenerator {
   constructor (audioCtx, song) {
     this.audioCtx = audioCtx
     this.song = song
@@ -316,7 +316,7 @@ export class MusicGenerator {
  * @param {*} bpm The bpm of the song
  * @returns {AudioBuffer} The generated audio buffer
  */
-export async function generateSong (instr, n, sampleRate, bpm = 120) {
+export async function generateSound (instr, n, sampleRate, bpm = 120) {
   const attackTime = instr.env_attack / 44100
   const releaseTime = instr.env_release / 44100
   const sustainTime = instr.env_sustain / 44100
@@ -346,7 +346,7 @@ export async function generateSong (instr, n, sampleRate, bpm = 120) {
  * @param {*} options `sampleRate`: the sample rate
  * @returns {AudioBuffer} The generated audio buffer
  */
-export async function generateMusic (song, sampleRate) {
+export async function generateSong (song, sampleRate) {
   const songLenSeconds = song.songLen
 
   const audioCtx = new OfflineAudioContext(2, songLenSeconds * sampleRate, sampleRate)

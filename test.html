@@ -9,7 +9,10 @@
   <script src="dist/sonantx.bundle.js"></script>
   <script>
   $(function() {
-    var audioCtx = new AudioContext();
+    var audioCtx = new AudioContext({
+      sampleRate: 44100
+    });
+    console.log(audioCtx);
     var songGen = new sonantx.MusicGenerator(song);
     var time = new Date();
     songGen.createAudioBuffer(function(buffer) {

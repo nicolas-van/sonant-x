@@ -178,7 +178,11 @@ export class AudioGenerator {
   }
 
   getAudioBuffer (callBack) {
-    if (audioCtx === null) { audioCtx = new AudioContext() }
+    if (audioCtx === null) {
+      audioCtx = new AudioContext({
+        sampleRate: WAVE_SPS
+      })
+    }
     const mixBuf = this.mixBuf
     const waveSize = this.waveSize
 

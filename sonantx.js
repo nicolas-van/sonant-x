@@ -1,11 +1,13 @@
 
 // Oscillators
 function osc_sin (value) {
-  return Math.sin(value * 6.283184)
+  return Math.sin(value * Math.PI * 2)
 }
 
 function osc_square (value) {
-  if (osc_sin(value) < 0) return -1
+  if (osc_sin(value) < 0) {
+    return -1
+  }
   return 1
 }
 
@@ -15,7 +17,9 @@ function osc_saw (value) {
 
 function osc_tri (value) {
   const v2 = (value % 1) * 4
-  if (v2 < 2) return v2 - 1
+  if (v2 < 2) {
+    return v2 - 1
+  }
   return 3 - v2
 }
 
@@ -60,6 +64,7 @@ class SoundWriter {
 
     // Precalculate frequencues
     const o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
+    console.log(o1t)
     const o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune)
 
     // State variable init
@@ -172,7 +177,7 @@ export class TrackGenerator {
     let currentSample = 0
     let nextNote = 0
     let sounds = []
-    scriptNode.onaudioprocess = function (audioProcessingEvent) {
+    scriptNode.onaudioprocess = (audioProcessingEvent) => {
       const inputData = audioProcessingEvent.inputBuffer
       const outputData = audioProcessingEvent.outputBuffer
       const lchan = outputData.getChannelData(0)
@@ -180,10 +185,12 @@ export class TrackGenerator {
       lchan.set(inputData.getChannelData(0))
       rchan.set(inputData.getChannelData(1))
 
-      sounds.slice().forEach(function (el) {
+      sounds.slice().forEach((el) => {
         const finished = el.write(lchan, rchan, 0)
         if (finished) {
-          sounds = sounds.filter(function (el2) { return el2 !== el })
+          sounds = sounds.filter((el2) => {
+            return el2 !== el
+          })
         }
       })
 
@@ -202,7 +209,7 @@ export class TrackGenerator {
       }
 
       currentSample += inputData.length
-    }.bind(this)
+    }
 
     const delayTime = (instr.fx_delay_time * rowLen) / audioCtx.sampleRate / 2
     const delayAmount = instr.fx_delay_amt / 255
@@ -240,12 +247,12 @@ export class MusicGenerator {
 
     this.tracks = []
 
-    this.song.songData.forEach(function (el) {
+    this.song.songData.forEach((el) => {
       const track = new TrackGenerator(this.audioCtx, el, this.song.rowLen, this.song.endPattern)
       nullGain.connect(track.chain[0])
       track.chain[track.chain.length - 1].connect(mixer)
       this.tracks.push(track)
-    }.bind(this))
+    })
 
     this.chain = [source, nullGain, mixer]
   }

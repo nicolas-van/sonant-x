@@ -9,7 +9,11 @@
   <script src="dist/sonantx.bundle.js"></script>
   <script>
   $(function() {
-    const audioCtx = new AudioContext()
+    const audioCtx = new AudioContext({
+      sampleRate: 44100
+    })
+    console.log(audioCtx)
+    song.rowLen = Math.round((song.rowLen / 44100) * audioCtx.sampleRate)
     let soundGen
     $("button.btna").click(function() {
       soundGen = new sonantx.MusicGenerator(audioCtx, song)

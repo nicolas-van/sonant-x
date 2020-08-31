@@ -1,6 +1,6 @@
 {
   "name": "sonantx",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "Sonant-X",
   "main": "dist/sonantx.bundle.js",
   "keywords": [

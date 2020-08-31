@@ -47,10 +47,6 @@ function effectiveRowLen (audioCtx, bpm) {
   return Math.round((60 * audioCtx.sampleRate / 4) / bpm)
 }
 
-function rowLen44100 (bpm) {
-  return Math.round((60 * 44100 / 4) / bpm)
-}
-
 class SoundWriter {
   constructor (audioCtx, instr, n, bpm) {
     this.audioCtx = audioCtx
@@ -76,6 +72,12 @@ class SoundWriter {
     const panFreq = Math.pow(2, instr.fx_pan_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
     const lfoFreq = Math.pow(2, instr.lfo_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
 
+    const adaptTime = (n) => (n / 44100) * this.audioCtx.sampleRate
+
+    const env_attack = adaptTime(instr.env_attack)
+    const env_release = adaptTime(instr.env_release)
+    const env_sustain = adaptTime(instr.env_sustain)
+
     // Precalculate frequencues
     const o1t = getnotefreq(this.audioCtx, n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
     const o2t = getnotefreq(this.audioCtx, n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune)
@@ -83,16 +85,16 @@ class SoundWriter {
     // State variable init
     const q = instr.fx_resonance / 255
 
-    while (this.j < instr.env_attack + instr.env_sustain + instr.env_release && c < lchan.length) {
+    while (this.j < env_attack + env_sustain + env_release && c < lchan.length) {
       // LFO
       const lfor = osc_lfo(this.j * lfoFreq) * instr.lfo_amt / 512 + 0.5
 
       // Envelope
       let e = 1
-      if (this.j < instr.env_attack) {
-        e = this.j / instr.env_attack
-      } else if (this.j >= instr.env_attack + instr.env_sustain) {
-        e -= (this.j - instr.env_attack - instr.env_sustain) / instr.env_release
+      if (this.j < env_attack) {
+        e = this.j / env_attack
+      } else if (this.j >= env_attack + env_sustain) {
+        e -= (this.j - env_attack - env_sustain) / env_release
       }
 
       // Oscillator 1

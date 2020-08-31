@@ -32,12 +32,23 @@ const oscillators =
   osc_tri
 ]
 
-function getnotefreq (n) {
-  return 0.00390625 * Math.pow(1.059463094, n - 128)
+function getnotefreq44100 (n) {
+  const val = 0.00390625 * Math.pow(1.059463094, n - 128)
+  return val
+}
+
+function getnotefreq (audioCtx, n) {
+  const x = getnotefreq44100(n)
+  const val = (x / audioCtx.sampleRate) * 44100
+  return val
 }
 
 function effectiveRowLen (audioCtx, bpm) {
   return Math.round((60 * audioCtx.sampleRate / 4) / bpm)
+}
+
+function rowLen44100 (bpm) {
+  return Math.round((60 * 44100 / 4) / bpm)
 }
 
 class SoundWriter {
@@ -66,8 +77,8 @@ class SoundWriter {
     const lfoFreq = Math.pow(2, instr.lfo_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
 
     // Precalculate frequencues
-    const o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
-    const o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune)
+    const o1t = getnotefreq(this.audioCtx, n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
+    const o2t = getnotefreq(this.audioCtx, n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune)
 
     // State variable init
     const q = instr.fx_resonance / 255
@@ -212,7 +223,7 @@ export class TrackGenerator {
       currentSample += inputData.length
     }
 
-    const delayTime = (instr.fx_delay_time * effectiveRowLen(this.audioCtx, this.bpm)) / audioCtx.sampleRate / 2
+    const delayTime = instr.fx_delay_time * (this.bpm / 60 / 32)
     const delayAmount = instr.fx_delay_amt / 255
 
     const delayGain = this.audioCtx.createGain()

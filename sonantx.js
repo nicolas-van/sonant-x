@@ -316,7 +316,7 @@ export class MusicGenerator {
  * @param {*} bpm The bpm of the song
  * @returns {AudioBuffer} The generated audio buffer
  */
-export async function generateSound (instr, n, sampleRate, bpm = 120) {
+export async function generateSong (instr, n, sampleRate, bpm = 120) {
   const attackTime = instr.env_attack / 44100
   const releaseTime = instr.env_release / 44100
   const sustainTime = instr.env_sustain / 44100

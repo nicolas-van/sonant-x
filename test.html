@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="node_modules/jquery/dist/jquery.js"></script>
   <script src="example-songs/4k-synth.js"></script>
-  <script src="sonantx.js"></script>
+  <script src="dist/sonantx.bundle.js"></script>
   <script>
   $(function() {
-    var audioCtx = new AudioContext()
-    var soundGen
+    const audioCtx = new AudioContext()
+    let soundGen
     $("button.btna").click(function() {
-      var soundGen = new sonantx.MusicGenerator(audioCtx, song)
+      soundGen = new sonantx.MusicGenerator(audioCtx, song)
       soundGen.connect(audioCtx.destination)
       soundGen.start()
     });

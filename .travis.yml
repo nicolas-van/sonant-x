@@ -1,0 +1,15 @@
+language: node_js
+node_js:
+- node
+before_deploy:
+- npm run build
+deploy:
+  provider: npm
+  skip_cleanup: true
+  email: nicolas.vanhoren@gmail.com
+  api_key:
+    secure: ZR0MXNIlVlPBtXYqOYGflb44q5weM9+cIOIx//801vQ3LNX65cjTJ/GLDBdTlizONDfr7n2TQkwRvZEIkTPiWKdyUIHOqsOiN3hAhWiXZQcWqGrVvt6/I78sV9OhsZWUEMDJPL/X2tP+I+snm0MCOpuP0U3IRFrhijegZXDSvGMw4JWO9ienq9rDEGJAm0H5E7fE91KHheYkxyd5VhYdrIBE7fzVd5jIXFaHLOHozZxUFKuwLA7d4+omDEOILJoFeHm6fdYkIWIIWxKCIoe4RUMVeTdASukjeJEmpsqp1UTDS/6QIZgib6/VartACiQtdulabq7bJUZONMCaZGb9qIZWc6BU8p8stMCQh1kcXXjqshBckuh3CB1wl2HLdPnEob3GhBQ+JHJr4ipsXu7emuynY2J/eMnc4QhiXirRCrFgEYpFUsvIsrkw0qL959vratG82yFM9wfOr0OMGxNZeeQjTHSHpqm9GYQHgEMRXBir0F5C1XC+AF/we3oA7dMp4C3L7TfJUWJ52wBhkG/ZUdxFF1BzacQBy+ZfxSWQZjQQKDB2tCh+j5scWTWDOsibHP4oRtmDDSlGvAPrlIp9S3fDFBB/jOuwPRjqBK/nuqLgUqoHkYrpD64lWXGIoW+TGVMvKmipTRvJVaT/VlihZltSdfrjrvAMvIkkNZVxw3k=
+  on:
+    tags: true
+    repo: nicolas-van/sonant-x
+    branch: master

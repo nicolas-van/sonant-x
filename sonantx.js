@@ -28,49 +28,43 @@
 // 3. This notice may not be removed or altered from any source
 //    distribution.
 
-var sonantx;
-(function() {
-"use strict";
-sonantx = {};
+const WAVE_SPS = 44100 // Samples per second
+const WAVE_CHAN = 2 // Channels
+const MAX_TIME = 33 // maximum time, in millis, that the generator can use consecutively
 
 var WAVE_SPS = 44100;
 
 // Oscillators
-function osc_sin(value)
-{
-    return Math.sin(value * 6.283184);
+function osc_sin (value) {
+  return Math.sin(value * 6.283184)
 }
 
-function osc_square(value)
-{
-    if(osc_sin(value) < 0) return -1;
-    return 1;
+function osc_square (value) {
+  if (osc_sin(value) < 0) return -1
+  return 1
 }
 
-function osc_saw(value)
-{
-    return (value % 1) - 0.5;
+function osc_saw (value) {
+  return (value % 1) - 0.5
 }
 
-function osc_tri(value)
-{
-    var v2 = (value % 1) * 4;
-    if(v2 < 2) return v2 - 1;
-    return 3 - v2;
+function osc_tri (value) {
+  const v2 = (value % 1) * 4
+  if (v2 < 2) return v2 - 1
+  return 3 - v2
 }
 
 // Array of oscillator functions
-var oscillators =
+const oscillators =
 [
-    osc_sin,
-    osc_square,
-    osc_saw,
-    osc_tri
-];
+  osc_sin,
+  osc_square,
+  osc_saw,
+  osc_tri
+]
 
-function getnotefreq(n)
-{
-    return 0.00390625 * Math.pow(1.059463094, n - 128);
+function getnotefreq (n) {
+  return 0.00390625 * Math.pow(1.059463094, n - 128)
 }
 
 function SoundWriter(instr, n, rowLen) {

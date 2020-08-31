@@ -1,6 +1,40 @@
 {
+  "name": "sonantx",
+  "version": "1.0.3",
+  "description": "Sonant-X",
+  "main": "dist/sonantx.bundle.js",
+  "keywords": [
+    "audio",
+    "music",
+    "synthesizer",
+    "webaudioapi"
+  ],
+  "scripts": {
+    "build": "webpack",
+    "lint": "eslint \"*.js\"",
+    "test": "npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicolas-van/sonant-x.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nicolas-van/sonant-x/issues"
+  },
+  "homepage": "https://github.com/nicolas-van/sonant-x#readme",
   "devDependencies": {
-    "grunt": "~0.4.5",
-    "grunt-contrib-jshint": "~0.10.0"
+    "@babel/core": "^7.4.5",
+    "babel-loader": "^8.0.6",
+    "eslint": "^6.8.0",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-node": "^11.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "jquery": "^3.4.1",
+    "webpack": "^4.35.2",
+    "webpack-cli": "^3.3.5"
   }
 }

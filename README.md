@@ -54,7 +54,7 @@ To generate single sound (suitable for video games sound effects) you'll first n
 "Export" button on the top right of the application. You will then get a JSON description of the instrument used for the
 selected track.
 
-With that instrument, we will be able to use the `generateSound` function:
+With that instrument, we will be able to use the `generateSound()` function:
 
 ```javascript
 import * as sonantx from 'sonantx'

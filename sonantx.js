@@ -194,7 +194,7 @@ export class TrackGenerator {
     nullGain.gain.value = 0
     source.connect(nullGain)
 
-    const scriptNode = this.audioCtx.createScriptProcessor(4096, 2, 2)
+    const scriptNode = this.audioCtx.createScriptProcessor(512, 2, 2)
     nullGain.connect(scriptNode)
     let currentSample = 0
     let nextNote = 0

@@ -15,6 +15,10 @@
     console.log(audioCtx)
     let soundGen
     $("button.btna").click(function() {
+      if (soundGen) {
+        soundGen.stop()
+        soundGen = null
+      }
       soundGen = new sonantx.MusicGenerator(audioCtx, song)
       soundGen.connect(audioCtx.destination)
       soundGen.start()

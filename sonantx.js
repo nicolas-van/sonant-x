@@ -268,7 +268,7 @@ export class MusicGenerator {
       this.tracks.push(track)
     })
 
-    this.chain = [source, nullGain, mixer]
+    this.chain = [source, nullGain, this.tracks, mixer]
   }
 
   get bpm () {
@@ -277,11 +277,12 @@ export class MusicGenerator {
   }
 
   start (when) {
-    if (when === undefined) {
-      this.chain[0].start()
-    } else {
-      this.chain[0].start(when)
-    }
+    this.chain[0].start(when)
+  }
+
+  stop (when) {
+    this.chain[0].stop(when)
+    this.chain[this.chain.length - 1].disconnect()
   }
 
   connect (target) {

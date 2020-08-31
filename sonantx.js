@@ -36,12 +36,16 @@ function getnotefreq (n) {
   return 0.00390625 * Math.pow(1.059463094, n - 128)
 }
 
+function effectiveRowLen (audioCtx, bpm) {
+  return Math.round((60 * audioCtx.sampleRate / 4) / bpm)
+}
+
 class SoundWriter {
-  constructor (audioCtx, instr, n, rowLen) {
+  constructor (audioCtx, instr, n, bpm) {
     this.audioCtx = audioCtx
     this.instr = instr
     this.n = n
-    this.rowLen = rowLen
+    this.bpm = bpm
 
     this.c1 = 0
     this.c2 = 0
@@ -53,18 +57,16 @@ class SoundWriter {
   write (lchan, rchan, from) {
     const instr = this.instr
     const n = this.n
-    const rowLen = this.rowLen
     let c = from
 
     const osc_lfo = oscillators[instr.lfo_waveform]
     const osc1 = oscillators[instr.osc1_waveform]
     const osc2 = oscillators[instr.osc2_waveform]
-    const panFreq = Math.pow(2, instr.fx_pan_freq - 8) / rowLen
-    const lfoFreq = Math.pow(2, instr.lfo_freq - 8) / rowLen
+    const panFreq = Math.pow(2, instr.fx_pan_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
+    const lfoFreq = Math.pow(2, instr.lfo_freq - 8) / effectiveRowLen(this.audioCtx, this.bpm)
 
     // Precalculate frequencues
     const o1t = getnotefreq(n + (instr.osc1_oct - 8) * 12 + instr.osc1_det) * (1 + 0.0008 * instr.osc1_detune)
-    console.log(o1t)
     const o2t = getnotefreq(n + (instr.osc2_oct - 8) * 12 + instr.osc2_det) * (1 + 0.0008 * instr.osc2_detune)
 
     // State variable init
@@ -113,7 +115,7 @@ class SoundWriter {
       if (instr.lfo_fx_freq) {
         f *= lfor
       }
-      f = 1.5 * Math.sin(f * 3.141592 / this.audioCtx.sampleRate)
+      f = 1.5 * Math.sin(f * Math.PI / this.audioCtx.sampleRate)
       this.low += f * this.band
       const high = q * (rsample - this.band) - this.low
       this.band += f * high
@@ -164,13 +166,12 @@ class SoundWriter {
 }
 
 export class TrackGenerator {
-  constructor (audioCtx, instr, rowLen, endPattern) {
-    this.audioCtx = audioCtx
-    rowLen = rowLen || 5605
+  constructor (audioCtx, instr, bpm, endPattern) {
+    bpm = bpm || 118
     endPattern = endPattern || instr.p.length - 1
-
+    this.audioCtx = audioCtx
     this.instr = instr
-    this.rowLen = rowLen
+    this.bpm = bpm
     this.endPattern = endPattern
 
     const scriptNode = this.audioCtx.createScriptProcessor(4096, 2, 2)
@@ -194,24 +195,24 @@ export class TrackGenerator {
         }
       })
 
-      let nextNoteSample = nextNote * rowLen
+      let nextNoteSample = nextNote * effectiveRowLen(this.audioCtx, this.bpm)
       while (nextNoteSample >= currentSample &&
             nextNoteSample < currentSample + inputData.length) {
         const pattern = instr.p[Math.floor(nextNote / 32) % (this.endPattern + 1)] || 0
         const note = pattern === 0 ? 0 : (instr.c[pattern - 1] || { n: [] }).n[nextNote % 32] || 0
         if (note !== 0) {
-          const sw = new SoundWriter(this.audioCtx, instr, note, rowLen)
+          const sw = new SoundWriter(this.audioCtx, instr, note, this.bpm)
           sw.write(lchan, rchan, nextNoteSample - currentSample)
           sounds.push(sw)
         }
         nextNote += 1
-        nextNoteSample = nextNote * rowLen
+        nextNoteSample = nextNote * effectiveRowLen(this.audioCtx, this.bpm)
       }
 
       currentSample += inputData.length
     }
 
-    const delayTime = (instr.fx_delay_time * rowLen) / audioCtx.sampleRate / 2
+    const delayTime = (instr.fx_delay_time * effectiveRowLen(this.audioCtx, this.bpm)) / audioCtx.sampleRate / 2
     const delayAmount = instr.fx_delay_amt / 255
 
     const delayGain = this.audioCtx.createGain()
@@ -248,13 +249,18 @@ export class MusicGenerator {
     this.tracks = []
 
     this.song.songData.forEach((el) => {
-      const track = new TrackGenerator(this.audioCtx, el, this.song.rowLen, this.song.endPattern)
+      const track = new TrackGenerator(this.audioCtx, el, this.bpm, this.song.endPattern)
       nullGain.connect(track.chain[0])
       track.chain[track.chain.length - 1].connect(mixer)
       this.tracks.push(track)
     })
 
     this.chain = [source, nullGain, mixer]
+  }
+
+  get bpm () {
+    // rowLen is a number of samples when using 44100hz
+    return Math.round((60 * 44100 / 4) / this.song.rowLen)
   }
 
   start (when) {

@@ -46,8 +46,7 @@ sonantx.generateMusic(mySong, audioCtx.sampleRate).then((audioBuffer) => {
 })
 ```
 
-The `generateMusic()` can take multiple seconds, depending on the length of your song. It is recommended to initialize your
-music at the startup of the application and keep a reference to the audio buffer.
+The `generateMusic()` function can take multiple seconds before returning, depending on the length of your song. It is recommended to initialize your music at the startup of the application and keep a reference to the audio buffer.
 
 ### Single sounds generation
 

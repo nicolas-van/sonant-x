@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "webpack",
+    "serve": "parcel serve test.html",
     "lint": "eslint \"*.js\"",
     "test": "npm run lint"
   },
@@ -25,16 +26,18 @@
   },
   "homepage": "https://github.com/nicolas-van/sonant-x#readme",
   "devDependencies": {
-    "@babel/core": "^7.4.5",
-    "babel-loader": "^8.0.6",
+    "@babel/core": "^7.12.3",
+    "audiobuffer-to-wav": "^1.0.0",
+    "babel-loader": "^8.2.1",
     "eslint": "^6.8.0",
-    "eslint-config-standard": "^14.1.0",
-    "eslint-plugin-import": "^2.20.1",
-    "eslint-plugin-node": "^11.0.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-standard": "^4.0.1",
-    "jquery": "^3.4.1",
-    "webpack": "^4.35.2",
-    "webpack-cli": "^3.3.5"
+    "eslint-plugin-standard": "^4.1.0",
+    "jquery": "^3.5.1",
+    "parcel-bundler": "^1.12.4",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12"
   }
 }

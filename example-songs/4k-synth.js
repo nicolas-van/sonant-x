@@ -1,6 +1,4 @@
-(function() {
-"use strict";
-window.song = {
+export default {
     songLen: 123,
     songData: [
         {
@@ -1375,5 +1373,4 @@ window.song = {
     ],
     rowLen: 5606,
     endPattern: 30
-};
-})();
+}

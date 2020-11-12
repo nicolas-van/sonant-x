@@ -37,6 +37,7 @@
     "eslint-plugin-standard": "^4.1.0",
     "jquery": "^3.5.1",
     "parcel-bundler": "^1.12.4",
+    "rfc4648": "^1.4.0",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12"
   }

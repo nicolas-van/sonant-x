@@ -1,7 +1,7 @@
 Sonant-X
 ========
 
-[![Github-sponsors](https://img.shields.io/badge/sponsor-30363D?logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/nicolas-van) [![GitHub Repo stars](https://img.shields.io/github/stars/nicolas-van/sonant-x?style=social)](https://github.com/nicolas-van/sonant-x/stargazers) [![Build Status](https://travis-ci.org/nicolas-van/sonant-x.svg?branch=master)](https://travis-ci.org/nicolas-van/sonant-x) [![npm](https://img.shields.io/npm/v/sonantx.svg)](https://www.npmjs.com/package/sonantx)
+[![Github-sponsors](https://img.shields.io/badge/sponsor-30363D?logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/nicolas-van) [![GitHub Repo stars](https://img.shields.io/github/stars/nicolas-van/sonant-x?style=social)](https://github.com/nicolas-van/sonant-x/stargazers) [![Node.js CI](https://github.com/nicolas-van/sonant-x/actions/workflows/node.js.yml/badge.svg)](https://github.com/nicolas-van/sonant-x/actions/workflows/node.js.yml) [![npm](https://img.shields.io/npm/v/sonantx.svg)](https://www.npmjs.com/package/sonantx)
 
 A very small JavaScript synthesizer library, suitable for small JavaScript demos or video games.
 

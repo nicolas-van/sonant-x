@@ -25,6 +25,10 @@
     "url": "https://github.com/nicolas-van/sonant-x/issues"
   },
   "homepage": "https://github.com/nicolas-van/sonant-x#readme",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/nicolas-van"
+  },
   "devDependencies": {
     "@babel/core": "^7.12.3",
     "audiobuffer-to-wav": "^1.0.0",

@@ -9,8 +9,6 @@ Sonant-X was created with video games' sound effects and music in mind, as well 
 
 Songs for Sonant-X can be composed using [Sonant-X Live](https://github.com/nicolas-van/sonant-x-live).
 
-Sonant-X is a fork of js-sonant by Marcus Geelnard.
-
 Example
 -------
 
@@ -75,3 +73,10 @@ sonantx.generateSound(myInstrument, midiNote, audioCtx.sampleRate, bpm).then((au
 
 Single sound generation can be very fast but sounds can still be generated ahead of time if precise timing is very
 important for you.
+
+Project History
+---------------
+
+Sonant-X is a fork of [js-sonant](https://gitlab.com/mbitsnbites/js-sonant) by Marcus Geelnard.
+
+js-sonant is itself a port from C to Javascript of [Sonant](https://www.pouet.net/prod.php?which=53615) by Jake Taylor.

@@ -77,6 +77,6 @@ important for you.
 Project History
 ---------------
 
-Sonant-X is a fork of [js-sonant](https://gitlab.com/mbitsnbites/js-sonant) by Marcus Geelnard.
-
-js-sonant is itself a port from C to Javascript of [Sonant](https://www.pouet.net/prod.php?which=53615) by Jake Taylor.
+* [Sonant](https://www.pouet.net/prod.php?which=53615) was originally created by Jake Taylor and released under the terms of the [CC-BY-NC-SA 2.5 licence](https://creativecommons.org/licenses/by-nc-sa/2.5/).
+* [js-sonant](https://gitlab.com/mbitsnbites/js-sonant) was a port of Sonant from C to Javascript by Marcus Geelnard released under the terms of the [zlib license](https://zlib.net/zlib_license.html). There was some doubts regarding the legitimity of the license change but it was clarified by Jake Taylor that he gave his authorization for this in [this thread](https://github.com/parasyte/sonant-rs/issues/16).
+* Sonant-X is a fork from js-sonant.
